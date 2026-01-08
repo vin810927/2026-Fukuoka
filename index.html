@@ -66,6 +66,8 @@
           <div class="text-xs text-stone-500">{{ plan.meta.tripCode }}</div>
           <div class="text-lg font-semibold leading-tight editable" :contenteditable="editMode" @blur="onBlurText($event, 'meta.title')">{{ plan.meta.title }}</div>
         </div>
+          <div class="hidden sm:block text-[11px] text-stone-400 tabular-nums select-none whitespace-nowrap opacity-70">{{ app.version }} · {{ app.updated }}
+        </div>
         <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50" @click="toggleEdit">編輯：<span class="font-semibold">{{ editMode ? '開' : '關' }}</span></button>
       </div>
     </header>
@@ -423,6 +425,8 @@
 
     const { createApp } = Vue;
 
+    const APP_VERSION = 'v0.4.4';
+    const APP_UPDATED = '2026-01-09';
     const EXCHANGE_RATE = 4.6; // 粗略換算，可自行改
     const LS_KEY = 'kyushu_sakura_2026_plan_v1';
     const LS_DONE_KEY = 'kyushu_sakura_2026_done_v1';
@@ -749,7 +753,10 @@
 
     createApp({
       data(){
-        return {
+        return {    
+          app: { version: APP_VERSION, updated: APP_UPDATED },
+          editMode: false,
+          plan: deepClone(defaultPlan),
           editMode: false,
           plan: deepClone(defaultPlan),
           doneMap: {},
