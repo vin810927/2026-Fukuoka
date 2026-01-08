@@ -1,15 +1,18 @@
 <!--
-  九州賞櫻自駕 2026｜單檔行程 Web App（Canvas 預覽版）
-  Version: v0.4.2-canvas
-  Updated: 2026-01-07 (Asia/Taipei)
+  九州賞櫻自駕 2026｜單檔行程 Web App（GitHub Pages 可部署版）
+  Version: v0.5.0-share+edit
+  Updated: 2026-01-08 (Asia/Taipei)
   Tech: Tailwind CDN + Vue 3 (global build) + Open-Meteo
-  Notes:
-  - 支援：內容可編輯（contenteditable）＋ localStorage 自動保存
-  - 支援：Open-Meteo 5 日預報（依每日 base 座標）
-  - 支援：餐廳區塊（Tabelog 分數 / 訂位連結）
-  - 支援：分享（URL Hash 壓縮 JSON）
-  - 加入：天氣卡內「城市預覽」（OSM 靜態地圖縮圖 + Google Maps）
-  - 防呆：v-cloak + 載入提示（避免 Vue 未啟動時畫面崩壞）
+
+  Features:
+  - 內容可編輯（Edit Mode）＋ localStorage 自動保存
+  - 分享連結（URL Hash #p=... 壓縮 JSON）一鍵複製
+  - 匯入分享連結（貼上 #p=... 或完整 URL）立即套用
+  - 完成度統計（Tasks + Stops 打勾）
+  - 預算粗估（Stops 的 JPY 匯總 + 換算 TWD）
+  - 天氣 5 日預報（依選取 Day 的 base 座標）
+  - 城市預覽（OSM tile 縮圖 + Google Maps/OSM 連結）
+  - 導覽不再改 hash（避免與 #p=... 衝突），改用 scrollIntoView
 -->
 <!doctype html>
 <html lang="zh-Hant">
@@ -44,17 +47,25 @@
     [v-cloak]{ display:none; }
     .no-scrollbar::-webkit-scrollbar{ display:none; }
     .no-scrollbar{ -ms-overflow-style:none; scrollbar-width:none; }
-    .editable[contenteditable="true"]{ outline: 2px dashed rgba(120,113,108,0.35); outline-offset: 6px; border-radius: 14px; }
+    .editable[contenteditable="true"]{
+      outline: 2px dashed rgba(120,113,108,0.35);
+      outline-offset: 6px;
+      border-radius: 14px;
+    }
     .editable[contenteditable="true"]:focus{ outline-color: rgba(120,113,108,0.7); }
     .tap{ min-height:44px; }
+    .mono{ font-variant-numeric: tabular-nums; }
   </style>
 </head>
+
 <body class="bg-stone-50 text-stone-800 font-sans">
   <!-- 如果 Vue/JS 沒成功啟動，至少不要整頁炸裂 -->
   <div id="bootMsg" class="max-w-3xl mx-auto px-4 py-6">
     <div class="rounded-2xl border border-stone-200 bg-white shadow-soft p-4">
       <div class="text-sm font-semibold">載入中…</div>
-      <div class="mt-1 text-xs text-stone-600">若 3 秒後仍停在這裡，請重新整理；或檢查網路是否能載入 unpkg / CDN。</div>
+      <div class="mt-1 text-xs text-stone-600">
+        若 3 秒後仍停在這裡，請重新整理；或檢查網路是否能載入 Tailwind / Vue 的 CDN（GitHub Pages 通常正常）。
+      </div>
     </div>
   </div>
 
@@ -62,11 +73,37 @@
     <!-- Top bar -->
     <header class="sticky top-0 z-30 bg-stone-50/85 backdrop-blur border-b border-stone-200">
       <div class="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
           <div class="text-xs text-stone-500">{{ plan.meta.tripCode }}</div>
-          <div class="text-lg font-semibold leading-tight editable" :contenteditable="editMode" @blur="onBlurText($event, 'meta.title')">{{ plan.meta.title }}</div>
+          <div
+            class="text-lg font-semibold leading-tight editable truncate"
+            :contenteditable="editMode"
+            @blur="onBlurText($event, 'meta.title')"
+          >{{ plan.meta.title }}</div>
+          <div class="mt-1 flex items-center gap-2 text-xs text-stone-500">
+            <span v-if="saveState.saving">儲存中…</span>
+            <span v-else>已儲存</span>
+            <span class="text-stone-300">•</span>
+            <span v-if="saveState.savedAt">最後更新：{{ saveState.savedAt }}</span>
+          </div>
         </div>
-        <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50" @click="toggleEdit">編輯：<span class="font-semibold">{{ editMode ? '開' : '關' }}</span></button>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50"
+                  @click="toggleEdit">
+            編輯：<span class="font-semibold">{{ editMode ? '開' : '關' }}</span>
+          </button>
+
+          <button class="tap px-3 py-2 rounded-xl bg-stone-800 text-stone-50 shadow-sm text-sm hover:bg-stone-700"
+                  @click="copyShareLink">
+            複製分享連結
+          </button>
+
+          <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50"
+                  @click="openImportDialog">
+            匯入
+          </button>
+        </div>
       </div>
     </header>
 
@@ -75,55 +112,123 @@
       <section class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div class="bg-white rounded-2xl shadow-soft border border-stone-200 p-4">
           <div class="text-xs text-stone-500">日期</div>
-          <div class="mt-1 text-sm text-stone-700 editable" :contenteditable="editMode" @blur="onBlurText($event, 'meta.dateRange')">{{ plan.meta.dateRange }}</div>
+          <div class="mt-1 text-sm text-stone-700 editable"
+               :contenteditable="editMode"
+               @blur="onBlurText($event, 'meta.dateRange')">{{ plan.meta.dateRange }}</div>
+
           <div class="mt-2 text-xs text-stone-500">人數</div>
-          <div class="mt-1 text-sm text-stone-700 editable" :contenteditable="editMode" @blur="onBlurText($event, 'meta.party')">{{ plan.meta.party }}</div>
+          <div class="mt-1 text-sm text-stone-700 editable"
+               :contenteditable="editMode"
+               @blur="onBlurText($event, 'meta.party')">{{ plan.meta.party }}</div>
         </div>
+
         <div class="bg-white rounded-2xl shadow-soft border border-stone-200 p-4">
           <div class="text-xs text-stone-500">交通</div>
-          <div class="mt-1 text-sm text-stone-700 editable" :contenteditable="editMode" @blur="onBlurText($event, 'meta.mobility')">{{ plan.meta.mobility }}</div>
+          <div class="mt-1 text-sm text-stone-700 editable"
+               :contenteditable="editMode"
+               @blur="onBlurText($event, 'meta.mobility')">{{ plan.meta.mobility }}</div>
+
           <div class="mt-2 text-xs text-stone-500">攝影</div>
-          <div class="mt-1 text-sm text-stone-700 editable" :contenteditable="editMode" @blur="onBlurText($event, 'meta.gear')">{{ plan.meta.gear }}</div>
+          <div class="mt-1 text-sm text-stone-700 editable"
+               :contenteditable="editMode"
+               @blur="onBlurText($event, 'meta.gear')">{{ plan.meta.gear }}</div>
         </div>
+
         <div class="bg-white rounded-2xl shadow-soft border border-stone-200 p-4">
           <div class="flex items-start justify-between gap-3">
             <div class="flex-1">
-              <div class="text-xs text-stone-500">完成度</div>
+              <div class="text-xs text-stone-500">完成度（Tasks + Stops）</div>
               <div class="mt-1 flex items-center gap-2">
                 <div class="w-full h-2 rounded-full bg-stone-200 overflow-hidden">
                   <div class="h-full bg-stone-700" :style="{width: progressPct + '%'}"></div>
                 </div>
-                <div class="text-xs text-stone-600 tabular-nums">{{ doneCount }}/{{ totalStops }}</div>
+                <div class="text-xs text-stone-600 mono">{{ doneCount }}/{{ totalItems }}</div>
               </div>
-              <div class="mt-2 text-xs text-stone-500">預算（粗估）</div>
+
+              <div class="mt-3 text-xs text-stone-500">預算（粗估：Stops JPY）</div>
               <div class="mt-1 text-sm text-stone-700">
-                <span class="tabular-nums">¥{{ totalJPY.toLocaleString() }}</span>
+                <span class="mono">¥{{ totalJPY.toLocaleString() }}</span>
                 <span class="text-stone-400"> / </span>
-                <span class="tabular-nums">NT$ {{ totalTWD.toLocaleString() }}</span>
+                <span class="mono">NT$ {{ totalTWD.toLocaleString() }}</span>
+              </div>
+
+              <div class="mt-2 text-xs text-stone-500">
+                匯率（可改）：<span class="mono">1 JPY ≈ NT$</span>
+                <span class="mono editable" :contenteditable="editMode" @blur="onBlurExchange($event)">{{ exchangeRate }}</span>
               </div>
             </div>
-            <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50" @click="resetDone">清除完成</button>
+
+            <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50"
+                    @click="resetDone">
+              清除完成
+            </button>
           </div>
         </div>
       </section>
 
-      <!-- Key tasks -->
+      <!-- Notes -->
       <section class="mt-4 bg-white rounded-2xl shadow-soft border border-stone-200 p-4">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="text-sm font-semibold">總備註</div>
+            <div class="text-xs text-stone-500">放整趟旅程的關鍵提醒與共識。</div>
+          </div>
+          <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50"
+                  @click="copyPlainSummary">
+            複製摘要
+          </button>
+        </div>
+        <div class="mt-3 text-sm text-stone-700 editable whitespace-pre-wrap"
+             :contenteditable="editMode"
+             @blur="onBlurText($event, 'meta.notes')">{{ plan.meta.notes }}</div>
+      </section>
+
+      <!-- Key tasks -->
+      <section class="mt-4 bg-white rounded-2xl shadow-soft border border-stone-200 p-4" id="tasks">
         <div class="flex items-center justify-between">
           <div>
             <div class="text-sm font-semibold">關鍵任務</div>
-            <div class="text-xs text-stone-500">行程外的搶票/搶預約，放這裡比較不會忘。</div>
+            <div class="text-xs text-stone-500">搶票/搶預約/重要待辦。</div>
           </div>
-          <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50" @click="addTask">＋ 新增</button>
+          <div class="flex items-center gap-2">
+            <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50"
+                    @click="exportPlanJson">
+              匯出 JSON
+            </button>
+            <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50"
+                    @click="addTask">
+              ＋ 新增
+            </button>
+          </div>
         </div>
+
         <div class="mt-3 space-y-2">
-          <div v-for="(t, ti) in plan.tasks" :key="t.id" class="flex items-start gap-3 p-3 rounded-2xl border border-stone-200 bg-stone-50">
-            <input type="checkbox" class="mt-1 h-5 w-5 accent-stone-700" :checked="isDone('task', t.id)" @change="toggleDone('task', t.id)" />
-            <div class="flex-1">
-              <div class="text-sm font-medium editable" :contenteditable="editMode" @blur="onBlurText($event, `tasks.${ti}.title`)">{{ t.title }}</div>
-              <div class="mt-1 text-xs text-stone-600 editable whitespace-pre-wrap" :contenteditable="editMode" @blur="onBlurText($event, `tasks.${ti}.note`)">{{ t.note }}</div>
+          <div v-for="(t, ti) in plan.tasks" :key="t.id"
+               class="flex items-start gap-3 p-3 rounded-2xl border border-stone-200 bg-stone-50">
+            <input type="checkbox"
+                   class="mt-1 h-5 w-5 accent-stone-700"
+                   :checked="isDone('task', t.id)"
+                   @change="toggleDone('task', t.id)" />
+
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium editable"
+                   :contenteditable="editMode"
+                   @blur="onBlurText($event, `tasks.${ti}.title`)">{{ t.title }}</div>
+
+              <div class="mt-1 text-xs text-stone-600 editable whitespace-pre-wrap"
+                   :contenteditable="editMode"
+                   @blur="onBlurText($event, `tasks.${ti}.note`)">{{ t.note }}</div>
             </div>
-            <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50" @click="deleteTask(ti)">刪除</button>
+
+            <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50"
+                    @click="deleteTask(ti)">
+              刪除
+            </button>
+          </div>
+
+          <div v-if="!plan.tasks || plan.tasks.length===0"
+               class="text-sm text-stone-500 py-2">
+            尚無任務。可按「新增」建立。
           </div>
         </div>
       </section>
@@ -136,10 +241,15 @@
             <div class="text-xs text-stone-500">資料來源：Open-Meteo。依「當天 base 座標」取值。</div>
           </div>
           <div class="flex items-center gap-2">
-            <select class="tap text-sm rounded-xl border border-stone-300 bg-white px-3 py-2" v-model.number="weatherDayIndex" @change="onWeatherDayChange">
+            <select class="tap text-sm rounded-xl border border-stone-300 bg-white px-3 py-2"
+                    v-model.number="weatherDayIndex"
+                    @change="onWeatherDayChange">
               <option v-for="(d, i) in plan.days" :key="d.id" :value="i">{{ d.dayLabel }} · {{ d.area }}</option>
             </select>
-            <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50" @click="refreshWeather">更新</button>
+            <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50"
+                    @click="refreshWeather">
+              更新
+            </button>
           </div>
         </div>
 
@@ -149,30 +259,40 @@
             <div class="min-w-0">
               <div class="text-xs text-stone-500">城市預覽（依選取 Day 的 Base）</div>
               <div class="mt-1 text-sm font-semibold truncate">{{ selectedDay.area }} · {{ selectedDay.base?.name }}</div>
-              <div class="mt-1 text-xs text-stone-600 tabular-nums" v-if="selectedDay.base?.lat && selectedDay.base?.lon">
+              <div class="mt-1 text-xs text-stone-600 mono" v-if="selectedDay.base?.lat && selectedDay.base?.lon">
                 {{ Number(selectedDay.base?.lat).toFixed(5) }}, {{ Number(selectedDay.base?.lon).toFixed(5) }}
               </div>
             </div>
             <div class="flex items-center gap-2" v-if="hasCoords">
               <a class="tap shrink-0 inline-flex items-center px-3 py-2 rounded-xl bg-stone-800 text-stone-50 text-sm hover:bg-stone-700"
-                :href="googleMapsLatLonUrl(selectedDay.base.lat, selectedDay.base.lon)" target="_blank" rel="noreferrer">Google Maps</a>
+                 :href="googleMapsLatLonUrl(selectedDay.base.lat, selectedDay.base.lon)"
+                 target="_blank" rel="noreferrer">Google Maps</a>
               <a class="tap shrink-0 inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50"
-                :href="openStreetMapUrl(selectedDay.base.lat, selectedDay.base.lon, 12)" target="_blank" rel="noreferrer">OSM</a>
+                 :href="openStreetMapUrl(selectedDay.base.lat, selectedDay.base.lon, 12)"
+                 target="_blank" rel="noreferrer">OSM</a>
             </div>
           </div>
+
           <div class="mt-3">
             <div v-if="hasCoords" class="relative">
               <div v-if="!mapTileError" class="grid grid-cols-2 overflow-hidden rounded-2xl border border-stone-200 bg-white">
-                <img v-for="(u, i) in mapTileUrls" :key="u" :src="u" class="w-full h-[80px] object-cover" loading="lazy" @error="mapTileError=true" alt="osm tile" />
+                <img v-for="(u, i) in mapTileUrls" :key="u"
+                     :src="u"
+                     class="w-full h-[80px] object-cover"
+                     loading="lazy"
+                     @error="mapTileError=true"
+                     alt="osm tile" />
               </div>
               <div v-else class="w-full h-[160px] rounded-2xl border border-stone-200 bg-white flex items-center justify-center text-sm text-stone-500">
-                縮圖載入失敗（此預覽環境可能擋外部圖片）。
+                縮圖載入失敗（可能是網路/環境擋外部圖片）。
               </div>
               <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
                 <div class="w-3 h-3 rounded-full bg-rose-600/80 ring-2 ring-white"></div>
               </div>
             </div>
-            <div v-else class="w-full h-[160px] rounded-2xl border border-stone-200 bg-white flex items-center justify-center text-sm text-stone-500">無座標（請補上 base.lat / base.lon）</div>
+            <div v-else class="w-full h-[160px] rounded-2xl border border-stone-200 bg-white flex items-center justify-center text-sm text-stone-500">
+              無座標（請補上 base.lat / base.lon）
+            </div>
           </div>
         </div>
 
@@ -180,36 +300,228 @@
           <div v-if="weather.loading" class="text-sm text-stone-600">讀取中…</div>
           <div v-else-if="weather.error" class="text-sm text-rose-700">{{ weather.error }}</div>
           <div v-else class="grid grid-cols-2 md:grid-cols-5 gap-2">
-            <div v-for="(w, wi) in weather.items" :key="wi" class="p-3 rounded-2xl border border-stone-200 bg-stone-50">
+            <div v-for="(w, wi) in weather.items" :key="wi"
+                 class="p-3 rounded-2xl border border-stone-200 bg-stone-50">
               <div class="text-xs text-stone-500">{{ w.date }}</div>
               <div class="mt-1 text-sm font-medium">{{ w.text }}</div>
-              <div class="mt-2 text-xs text-stone-600 tabular-nums">H {{ w.tmax }}° / L {{ w.tmin }}°</div>
+              <div class="mt-2 text-xs text-stone-600 mono">H {{ w.tmax }}° / L {{ w.tmin }}°</div>
               <div class="mt-1 text-xs text-stone-600">降雨 {{ w.precip }} mm</div>
             </div>
           </div>
         </div>
       </section>
 
+      <!-- Days -->
+      <section class="mt-4" id="days">
+        <div class="flex items-end justify-between">
+          <div>
+            <div class="text-sm font-semibold">每日行程</div>
+            <div class="text-xs text-stone-500">可新增景點（Stops）、填時間/連結/費用，並打勾追蹤完成度。</div>
+          </div>
+        </div>
+
+        <div class="mt-3 space-y-3">
+          <section v-for="(d, di) in plan.days" :key="d.id"
+                   class="bg-white rounded-2xl shadow-soft border border-stone-200 p-4"
+                   :id="`day-${di+1}`">
+
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="text-xs text-stone-500">{{ d.dayLabel }} · {{ d.date }}</div>
+                <div class="mt-1 text-base font-semibold editable"
+                     :contenteditable="editMode"
+                     @blur="onBlurText($event, `days.${di}.area`)">{{ d.area }}</div>
+
+                <div class="mt-1 text-sm text-stone-700 editable"
+                     :contenteditable="editMode"
+                     @blur="onBlurText($event, `days.${di}.title`)">{{ d.title }}</div>
+
+                <div class="mt-2 text-xs text-stone-600 editable whitespace-pre-wrap"
+                     :contenteditable="editMode"
+                     @blur="onBlurText($event, `days.${di}.summary`)">{{ d.summary }}</div>
+
+                <div class="mt-2 text-xs text-stone-500">駕車提示</div>
+                <div class="mt-1 text-sm text-stone-700 editable"
+                     :contenteditable="editMode"
+                     @blur="onBlurText($event, `days.${di}.driveHint`)">{{ d.driveHint }}</div>
+              </div>
+
+              <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50"
+                      @click="addStop(di)">
+                ＋ 景點
+              </button>
+            </div>
+
+            <!-- Base -->
+            <div class="mt-4 rounded-2xl border border-stone-200 bg-stone-50 p-3">
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="text-xs text-stone-500">Base（住宿/主要落點）</div>
+                  <div class="mt-1 text-sm font-semibold editable"
+                       :contenteditable="editMode"
+                       @blur="onBlurText($event, `days.${di}.base.name`)">{{ d.base?.name }}</div>
+                  <div class="mt-2 grid grid-cols-2 gap-2">
+                    <div>
+                      <div class="text-xs text-stone-500">lat</div>
+                      <div class="mt-1 text-sm text-stone-700 editable"
+                           :contenteditable="editMode"
+                           @blur="onBlurNumber($event, `days.${di}.base.lat`)">{{ d.base?.lat }}</div>
+                    </div>
+                    <div>
+                      <div class="text-xs text-stone-500">lon</div>
+                      <div class="mt-1 text-sm text-stone-700 editable"
+                           :contenteditable="editMode"
+                           @blur="onBlurNumber($event, `days.${di}.base.lon`)">{{ d.base?.lon }}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-2 shrink-0" v-if="d.base?.lat && d.base?.lon">
+                  <a class="tap inline-flex items-center px-3 py-2 rounded-xl bg-stone-800 text-stone-50 text-sm hover:bg-stone-700"
+                     :href="googleMapsLatLonUrl(d.base.lat, d.base.lon)" target="_blank" rel="noreferrer">Google Maps</a>
+                  <a class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50"
+                     :href="openStreetMapUrl(d.base.lat, d.base.lon, 12)" target="_blank" rel="noreferrer">OSM</a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Stops -->
+            <div class="mt-4">
+              <div class="flex items-center justify-between">
+                <div class="text-xs text-stone-500">Stops（景點/餐廳/拍攝點）</div>
+                <div class="text-xs text-stone-400">費用以 JPY 粗估（可留空）</div>
+              </div>
+
+              <div class="mt-2 space-y-2">
+                <div v-for="(s, si) in (d.stops || [])" :key="s.id"
+                     class="rounded-2xl border border-stone-200 bg-white p-3">
+                  <div class="flex items-start gap-3">
+                    <input type="checkbox"
+                           class="mt-1 h-5 w-5 accent-stone-700"
+                           :checked="isDone('stop', s.id)"
+                           @change="toggleDone('stop', s.id)" />
+
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-xs text-stone-500">時間</span>
+                        <span class="text-sm text-stone-700 editable"
+                              :contenteditable="editMode"
+                              @blur="onBlurText($event, `days.${di}.stops.${si}.time`)">{{ s.time || '—' }}</span>
+
+                        <span class="text-stone-300">|</span>
+
+                        <span class="text-xs text-stone-500">名稱</span>
+                        <span class="text-sm font-medium editable"
+                              :contenteditable="editMode"
+                              @blur="onBlurText($event, `days.${di}.stops.${si}.name`)">{{ s.name || '（請填）' }}</span>
+                      </div>
+
+                      <div class="mt-2 text-xs text-stone-600 editable whitespace-pre-wrap"
+                           :contenteditable="editMode"
+                           @blur="onBlurText($event, `days.${di}.stops.${si}.note`)">{{ s.note || '' }}</div>
+
+                      <div class="mt-2 flex items-center gap-2 flex-wrap">
+                        <span class="text-xs text-stone-500">連結</span>
+                        <span class="text-xs text-stone-700 editable"
+                              :contenteditable="editMode"
+                              @blur="onBlurText($event, `days.${di}.stops.${si}.link`)">{{ s.link || '' }}</span>
+                        <a v-if="s.link" class="text-xs text-stone-700 underline hover:text-stone-900"
+                           :href="normalizeUrl(s.link)" target="_blank" rel="noreferrer">開啟</a>
+                      </div>
+
+                      <div class="mt-2 flex items-center gap-2">
+                        <span class="text-xs text-stone-500">費用（JPY）</span>
+                        <span class="text-sm text-stone-700 editable mono"
+                              :contenteditable="editMode"
+                              @blur="onBlurMoneyJPY($event, `days.${di}.stops.${si}.costJPY`)">{{ formatJPY(s.costJPY) }}</span>
+                        <span class="text-xs text-stone-400" v-if="Number(s.costJPY) > 0">
+                          約 NT$ {{ Math.round(Number(s.costJPY) * exchangeRate).toLocaleString() }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50"
+                            @click="deleteStop(di, si)">
+                      刪除
+                    </button>
+                  </div>
+                </div>
+
+                <div v-if="!d.stops || d.stops.length===0" class="text-sm text-stone-500 py-2">
+                  尚無 Stops。可按右上角「＋ 景點」新增。
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
       <div class="h-8"></div>
     </main>
 
-    <!-- Bottom nav -->
+    <!-- Bottom nav (no hash) -->
     <nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-stone-200 bg-stone-50/90 backdrop-blur">
       <div class="max-w-3xl mx-auto px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
-        <a class="tap shrink-0 px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" href="#weather">天氣</a>
-        <a v-for="(d, i) in plan.days" :key="d.id" class="tap shrink-0 px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="`#day-${i+1}`">Day {{ i+1 }}</a>
-        <button class="tap shrink-0 ml-auto px-3 py-2 rounded-xl bg-stone-800 text-stone-50 text-sm hover:bg-stone-700" @click="scrollTop">回頂部</button>
+        <button class="tap shrink-0 px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50"
+                @click="scrollToId('tasks')">任務</button>
+        <button class="tap shrink-0 px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50"
+                @click="scrollToId('weather')">天氣</button>
+        <button v-for="(d, i) in plan.days" :key="d.id"
+                class="tap shrink-0 px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50"
+                @click="scrollToId(`day-${i+1}`)">Day {{ i+1 }}</button>
+
+        <button class="tap shrink-0 ml-auto px-3 py-2 rounded-xl bg-stone-800 text-stone-50 text-sm hover:bg-stone-700"
+                @click="scrollTop">回頂部</button>
       </div>
     </nav>
+
+    <!-- Import dialog -->
+    <div v-if="importDialog.open"
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
+      <div class="w-full max-w-xl rounded-2xl bg-white shadow-soft border border-stone-200 p-4">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="text-sm font-semibold">匯入行程</div>
+            <div class="text-xs text-stone-500">貼上「分享連結」或只貼 <span class="mono">#p=...</span> 也可以。</div>
+          </div>
+          <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50"
+                  @click="importDialog.open=false">關閉</button>
+        </div>
+
+        <textarea v-model="importDialog.text"
+                  class="mt-3 w-full h-32 rounded-2xl border border-stone-300 px-3 py-2 text-sm"
+                  placeholder="貼上連結或 #p=..."></textarea>
+
+        <div class="mt-3 flex items-center justify-between gap-2">
+          <div class="text-xs text-stone-500">
+            匯入會覆蓋你目前畫面上的內容（但你仍可用分享連結救回）。
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50"
+                    @click="clearLocalData">
+              清除本機存檔
+            </button>
+            <button class="tap px-3 py-2 rounded-xl bg-stone-800 text-stone-50 text-sm hover:bg-stone-700"
+                    @click="applyImport">
+              套用匯入
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script>
     'use strict';
 
-    const EXCHANGE_RATE = 4.6;
-    const LS_KEY = 'kyushu_sakura_2026_plan_v1';
-    const LS_DONE_KEY = 'kyushu_sakura_2026_done_v1';
+    // ====== 可調整：匯率（JPY -> TWD） ======
+    const DEFAULT_EXCHANGE_RATE = 0.22; // 這裡預設 1 JPY ≈ 0.22 TWD（可在頁面上改）
+
+    // ====== localStorage keys（改了 key 等於重新開一份本機存檔） ======
+    const LS_KEY = 'kyushu_sakura_2026_plan_v2';
+    const LS_DONE_KEY = 'kyushu_sakura_2026_done_v2';
+    const LS_RATE_KEY = 'kyushu_sakura_2026_rate_v2';
 
     const defaultPlan = {
       meta: {
@@ -241,15 +553,44 @@
         }
       ],
       days: [
-        { id:'day1', dayLabel:'Day 1', date:'2026/03/25（三）', area:'福岡 (Fukuoka) → 阿蘇 (Aso)', title:'落地即進溫泉宿', summary:'抵達後直接上阿蘇，確保準時入住。', driveHint:'FUK → 界 阿蘇', base:{ name:'星野リゾート 界 阿蘇 (KAI Aso)', lat:33.08069, lon:131.193505 }, stops:[] },
-        { id:'day2', dayLabel:'Day 2', date:'2026/03/26（四）', area:'阿蘇 (Aso)', title:'阿蘇周邊拍攝', summary:'草千里/大觀峰視天候調整。', driveHint:'阿蘇周邊', base:{ name:'星野リゾート 界 阿蘇 (KAI Aso)', lat:33.08069, lon:131.193505 }, stops:[] },
-        { id:'day3', dayLabel:'Day 3', date:'2026/03/27（五）', area:'阿蘇 → 高千穗 → 博多', title:'高千穗划船後回福岡', summary:'下午划船，傍晚回博多。', driveHint:'長距離', base:{ name:'都ホテル 博多', lat:33.5896534, lon:130.4228213 }, stops:[] },
-        { id:'day4', dayLabel:'Day 4', date:'2026/03/28（六）', area:'福岡 → 晚班回台', title:'太宰府＋機場', summary:'早上太宰府，傍晚進機場。', driveHint:'市區→機場', base:{ name:'福岡市區（博多）', lat:33.5896534, lon:130.4228213 }, stops:[] }
+        {
+          id:'day1', dayLabel:'Day 1', date:'2026/03/25（三）',
+          area:'福岡 (Fukuoka) → 阿蘇 (Aso)', title:'落地即進溫泉宿',
+          summary:'抵達後直接上阿蘇，確保準時入住。',
+          driveHint:'FUK → 界 阿蘇',
+          base:{ name:'星野リゾート 界 阿蘇 (KAI Aso)', lat:33.08069, lon:131.193505 },
+          stops:[]
+        },
+        {
+          id:'day2', dayLabel:'Day 2', date:'2026/03/26（四）',
+          area:'阿蘇 (Aso)', title:'阿蘇周邊拍攝',
+          summary:'草千里 / 大觀峰依天候調整。',
+          driveHint:'阿蘇周邊',
+          base:{ name:'星野リゾート 界 阿蘇 (KAI Aso)', lat:33.08069, lon:131.193505 },
+          stops:[]
+        },
+        {
+          id:'day3', dayLabel:'Day 3', date:'2026/03/27（五）',
+          area:'阿蘇 → 高千穗 → 博多', title:'高千穗後回福岡',
+          summary:'建議提早出發，保留山路緩衝。',
+          driveHint:'長距離',
+          base:{ name:'都ホテル 博多', lat:33.5896534, lon:130.4228213 },
+          stops:[]
+        },
+        {
+          id:'day4', dayLabel:'Day 4', date:'2026/03/28（六）',
+          area:'福岡 → 晚班回台', title:'太宰府＋機場',
+          summary:'早上太宰府，傍晚進機場。',
+          driveHint:'市區→機場',
+          base:{ name:'福岡市區（博多）', lat:33.5896534, lon:130.4228213 },
+          stops:[]
+        }
       ]
     };
 
     function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
 
+    // Base64 URL safe
     function b64UrlEncode(str){
       const b64 = btoa(unescape(encodeURIComponent(str)));
       return b64.replaceAll('+','-').replaceAll('/','_').replaceAll('=','');
@@ -258,6 +599,72 @@
       let b64 = b64url.replaceAll('-','+').replaceAll('_','/');
       while(b64.length % 4) b64 += '=';
       return decodeURIComponent(escape(atob(b64)));
+    }
+
+    function nowTimeString(){
+      const d = new Date();
+      const pad = (n)=> String(n).padStart(2,'0');
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    function uid(prefix){
+      const r = Math.random().toString(16).slice(2,8);
+      return `${prefix}-${Date.now()}-${r}`;
+    }
+
+    function setByPath(root, path, value){
+      // path like: meta.title, tasks.0.note, days.1.base.lat, days.2.stops.3.name
+      const parts = String(path).split('.').filter(Boolean);
+      let cur = root;
+      for(let i=0;i<parts.length-1;i++){
+        const key = parts[i];
+        const nextKey = parts[i+1];
+        const isIndex = /^[0-9]+$/.test(key);
+        const k = isIndex ? Number(key) : key;
+
+        if(cur[k] == null){
+          // create container based on nextKey
+          cur[k] = /^[0-9]+$/.test(nextKey) ? [] : {};
+        }
+        cur = cur[k];
+      }
+      const last = parts[parts.length-1];
+      const lastKey = /^[0-9]+$/.test(last) ? Number(last) : last;
+      cur[lastKey] = value;
+    }
+
+    function normalizeUrl(u){
+      const s = String(u || '').trim();
+      if(!s) return '';
+      if(/^https?:\/\//i.test(s)) return s;
+      return 'https://' + s;
+    }
+
+    function parseMoneyJPY(raw){
+      // Accept: "12,345" / "¥12345" / "12345"
+      const s = String(raw ?? '').replace(/[¥,\s]/g,'').trim();
+      if(!s) return 0;
+      const n = Number(s);
+      return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
+    }
+
+    function formatJPY(n){
+      const v = Number(n);
+      if(!Number.isFinite(v) || v <= 0) return '';
+      return String(Math.round(v));
+    }
+
+    function extractHashPayload(text){
+      const s = String(text || '').trim();
+      if(!s) return '';
+      // allow paste full url or "#p=...." or "p=...."
+      const m1 = s.match(/#p=([^&\s]+)/);
+      if(m1 && m1[1]) return m1[1];
+      const m2 = s.match(/(?:^|[?&])p=([^&\s]+)/);
+      if(m2 && m2[1]) return m2[1];
+      if(s.startsWith('p=')) return s.slice(2);
+      if(s.startsWith('#p=')) return s.slice(3);
+      return '';
     }
 
     function mountApp(){
@@ -276,15 +683,22 @@
             doneMap:{},
             weatherDayIndex:0,
             weather:{ loading:false, error:'', items:[] },
-            mapTileError:false
+            mapTileError:false,
+            exchangeRate: DEFAULT_EXCHANGE_RATE,
+            saveState:{ saving:false, savedAt:'' },
+            _saveTimer:null,
+            importDialog:{ open:false, text:'' }
           }
         },
+
         computed:{
-          selectedDay(){ return this.plan.days[this.weatherDayIndex] || this.plan.days[0] || {}; },
+          selectedDay(){ return this.plan.days?.[this.weatherDayIndex] || this.plan.days?.[0] || {}; },
+
           hasCoords(){
             const d = this.selectedDay;
             return !!(d?.base?.lat && d?.base?.lon && Number.isFinite(Number(d.base.lat)) && Number.isFinite(Number(d.base.lon)));
           },
+
           mapTileUrls(){
             if(!this.hasCoords) return [];
             const z = 12;
@@ -298,21 +712,362 @@
               this.osmTileUrl(z, x2, y2),
             ];
           },
-          totalStops(){ return (this.plan.tasks?.length||0); },
-          doneCount(){ return 0; },
-          progressPct(){ return 0; },
-          totalJPY(){ return 0; },
-          totalTWD(){ return 0; },
+
+          totalItems(){
+            const taskCount = (this.plan.tasks?.length || 0);
+            let stopCount = 0;
+            for(const d of (this.plan.days || [])){
+              stopCount += (d.stops?.length || 0);
+            }
+            return taskCount + stopCount;
+          },
+
+          doneCount(){
+            let c = 0;
+            const m = this.doneMap || {};
+            for(const k in m){
+              if(m[k]) c++;
+            }
+            return c;
+          },
+
+          progressPct(){
+            if(this.totalItems <= 0) return 0;
+            return Math.round((this.doneCount / this.totalItems) * 100);
+          },
+
+          totalJPY(){
+            // Sum stops.costJPY
+            let sum = 0;
+            for(const d of (this.plan.days || [])){
+              for(const s of (d.stops || [])){
+                const v = Number(s.costJPY);
+                if(Number.isFinite(v)) sum += v;
+              }
+            }
+            return Math.max(0, Math.round(sum));
+          },
+
+          totalTWD(){
+            const rate = Number(this.exchangeRate);
+            if(!Number.isFinite(rate) || rate <= 0) return 0;
+            return Math.max(0, Math.round(this.totalJPY * rate));
+          }
         },
+
         mounted(){
           const bm = document.getElementById('bootMsg');
           if(bm) bm.style.display='none';
-          // local/hash
+
+          this.loadExchangeRate();
           this.loadFromHashOrLocal();
+          this.loadDoneMap();
           this.fetchWeather();
-          window.addEventListener('hashchange', () => this.loadFromHashOrLocal());
+
+          window.addEventListener('hashchange', () => {
+            // 如果有人貼了新的 #p=...，重新載入
+            this.loadFromHashOrLocal();
+            this.fetchWeather();
+          });
         },
+
         methods:{
+          // ---------- UI ----------
+          toggleEdit(){ this.editMode=!this.editMode; },
+
+          scrollToId(id){
+            const el = document.getElementById(id);
+            if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+          },
+          scrollTop(){ window.scrollTo({top:0, behavior:'smooth'}); },
+
+          openImportDialog(){
+            this.importDialog.text = '';
+            this.importDialog.open = true;
+          },
+
+          // ---------- Editing handlers ----------
+          onBlurText(ev, path){
+            if(!this.editMode) return;
+            const val = (ev?.target?.innerText ?? '').replace(/\r\n/g, '\n');
+            setByPath(this.plan, path, val);
+            this.persistSoon();
+          },
+
+          onBlurNumber(ev, path){
+            if(!this.editMode) return;
+            const raw = (ev?.target?.innerText ?? '').trim();
+            const n = Number(raw);
+            setByPath(this.plan, path, Number.isFinite(n) ? n : raw);
+            this.persistSoon();
+          },
+
+          onBlurMoneyJPY(ev, path){
+            if(!this.editMode) return;
+            const raw = (ev?.target?.innerText ?? '').trim();
+            const n = parseMoneyJPY(raw);
+            setByPath(this.plan, path, n);
+            this.persistSoon();
+          },
+
+          onBlurExchange(ev){
+            if(!this.editMode) return;
+            const raw = (ev?.target?.innerText ?? '').trim();
+            const n = Number(raw);
+            if(Number.isFinite(n) && n > 0){
+              this.exchangeRate = n;
+              try{ localStorage.setItem(LS_RATE_KEY, String(n)); }catch(_){}
+            }else{
+              // revert view
+              this.exchangeRate = this.exchangeRate;
+            }
+            this.persistSoon();
+          },
+
+          // ---------- Tasks ----------
+          addTask(){
+            const t = { id: uid('task'), title:'（新任務）', note:'' };
+            this.plan.tasks = this.plan.tasks || [];
+            this.plan.tasks.unshift(t);
+            this.persistSoon();
+          },
+
+          deleteTask(idx){
+            if(!Array.isArray(this.plan.tasks)) return;
+            const t = this.plan.tasks[idx];
+            if(t?.id) delete this.doneMap[`task:${t.id}`];
+            this.plan.tasks.splice(idx, 1);
+            this.persistSoon();
+            this.persistDoneMap();
+          },
+
+          // ---------- Stops ----------
+          addStop(dayIndex){
+            const d = this.plan.days?.[dayIndex];
+            if(!d) return;
+            d.stops = d.stops || [];
+            d.stops.push({
+              id: uid('stop'),
+              time: '',
+              name: '（新景點）',
+              note: '',
+              link: '',
+              costJPY: 0
+            });
+            this.persistSoon();
+          },
+
+          deleteStop(dayIndex, stopIndex){
+            const d = this.plan.days?.[dayIndex];
+            if(!d?.stops) return;
+            const s = d.stops[stopIndex];
+            if(s?.id) delete this.doneMap[`stop:${s.id}`];
+            d.stops.splice(stopIndex, 1);
+            this.persistSoon();
+            this.persistDoneMap();
+          },
+
+          normalizeUrl,
+
+          formatJPY,
+
+          // ---------- Done map ----------
+          isDone(type, id){
+            return !!this.doneMap[`${type}:${id}`];
+          },
+
+          toggleDone(type, id){
+            const k = `${type}:${id}`;
+            this.doneMap[k] = !this.doneMap[k];
+            this.persistDoneMap();
+          },
+
+          resetDone(){
+            this.doneMap = {};
+            this.persistDoneMap();
+          },
+
+          loadDoneMap(){
+            try{
+              const raw = localStorage.getItem(LS_DONE_KEY);
+              this.doneMap = raw ? JSON.parse(raw) : {};
+            }catch(_){
+              this.doneMap = {};
+            }
+          },
+
+          persistDoneMap(){
+            try{
+              localStorage.setItem(LS_DONE_KEY, JSON.stringify(this.doneMap));
+            }catch(_){}
+          },
+
+          // ---------- Persist plan ----------
+          persistSoon(){
+            // debounce
+            this.saveState.saving = true;
+            if(this._saveTimer) clearTimeout(this._saveTimer);
+            this._saveTimer = setTimeout(() => {
+              this.persistNow();
+            }, 250);
+          },
+
+          persistNow(){
+            try{
+              localStorage.setItem(LS_KEY, JSON.stringify(this.plan));
+            }catch(_){}
+            this.saveState.saving = false;
+            this.saveState.savedAt = nowTimeString();
+          },
+
+          clearLocalData(){
+            try{
+              localStorage.removeItem(LS_KEY);
+              localStorage.removeItem(LS_DONE_KEY);
+            }catch(_){}
+            this.doneMap = {};
+            this.plan = deepClone(defaultPlan);
+            this.persistNow();
+            this.importDialog.open = false;
+            alert('已清除本機存檔並回到預設內容。');
+          },
+
+          // ---------- Share / Import ----------
+          buildShareUrl(){
+            const payload = b64UrlEncode(JSON.stringify(this.plan));
+            // 保留目前 path，改用 #p=...（避免與導覽衝突）
+            const url = `${location.origin}${location.pathname}#p=${payload}`;
+            return url;
+          },
+
+          async copyShareLink(){
+            const url = this.buildShareUrl();
+            // 同步更新 hash，方便你自己測試「開新分頁就能看到同樣內容」
+            try{
+              history.replaceState(null, '', '#p=' + extractHashPayload(url));
+            }catch(_){}
+
+            try{
+              if(navigator.clipboard && navigator.clipboard.writeText){
+                await navigator.clipboard.writeText(url);
+                alert('分享連結已複製，貼給旅伴即可。');
+              }else{
+                prompt('請複製以下分享連結：', url);
+              }
+            }catch(_){
+              prompt('請複製以下分享連結：', url);
+            }
+          },
+
+          applyImport(){
+            const payload = extractHashPayload(this.importDialog.text);
+            if(!payload){
+              alert('找不到 #p=... 資料。請貼上分享連結或 #p=...。');
+              return;
+            }
+            try{
+              const str = b64UrlDecode(payload);
+              const obj = JSON.parse(str);
+              this.plan = obj;
+              this.persistNow();
+              // 同步更新網址 hash
+              try{ history.replaceState(null, '', '#p=' + payload); }catch(_){}
+              this.importDialog.open = false;
+              alert('已匯入並套用。');
+            }catch(_){
+              alert('匯入失敗：連結內容可能損毀或格式不正確。');
+            }
+          },
+
+          loadFromHashOrLocal(){
+            const h = location.hash || '';
+            const m = h.match(/#p=([^&]+)/);
+            if(m && m[1]){
+              try{
+                const str = b64UrlDecode(m[1]);
+                this.plan = JSON.parse(str);
+                // 同步寫入本機存檔，方便下次直接開也有
+                this.persistNow();
+                return;
+              }catch(_){}
+            }
+            // fallback: localStorage
+            try{
+              const raw = localStorage.getItem(LS_KEY);
+              this.plan = raw ? JSON.parse(raw) : deepClone(defaultPlan);
+            }catch(_){
+              this.plan = deepClone(defaultPlan);
+            }
+          },
+
+          exportPlanJson(){
+            try{
+              const blob = new Blob([JSON.stringify(this.plan, null, 2)], {type:'application/json'});
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'kyushu_sakura_2026_plan.json';
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              URL.revokeObjectURL(url);
+            }catch(_){
+              alert('匯出失敗（可能是瀏覽器限制）。');
+            }
+          },
+
+          async copyPlainSummary(){
+            // 快速產出一段純文字摘要（方便丟群組）
+            const lines = [];
+            lines.push(this.plan.meta.title || '行程');
+            lines.push(this.plan.meta.dateRange || '');
+            lines.push('');
+            if(this.plan.meta.notes) lines.push(this.plan.meta.notes.trim(), '');
+
+            lines.push('關鍵任務：');
+            for(const t of (this.plan.tasks || [])){
+              lines.push(`- ${t.title}`);
+            }
+            lines.push('');
+
+            for(const d of (this.plan.days || [])){
+              lines.push(`${d.dayLabel}｜${d.date}｜${d.area}`);
+              lines.push(`- ${d.title}`);
+              if(d.summary) lines.push(`- ${d.summary}`);
+              if(d.stops && d.stops.length){
+                lines.push('  Stops：');
+                for(const s of d.stops){
+                  const cost = Number(s.costJPY) > 0 ? `（¥${Math.round(Number(s.costJPY))}）` : '';
+                  const time = s.time ? `${s.time} ` : '';
+                  lines.push(`  - ${time}${s.name || ''}${cost}`);
+                }
+              }
+              lines.push('');
+            }
+            const text = lines.join('\n').trim();
+
+            try{
+              if(navigator.clipboard && navigator.clipboard.writeText){
+                await navigator.clipboard.writeText(text);
+                alert('摘要已複製。');
+              }else{
+                prompt('請複製以下摘要：', text);
+              }
+            }catch(_){
+              prompt('請複製以下摘要：', text);
+            }
+          },
+
+          // ---------- Exchange rate ----------
+          loadExchangeRate(){
+            try{
+              const raw = localStorage.getItem(LS_RATE_KEY);
+              const n = Number(raw);
+              if(Number.isFinite(n) && n > 0) this.exchangeRate = n;
+            }catch(_){}
+          },
+
+          // ---------- Weather + Map ----------
           onWeatherDayChange(){
             this.mapTileError = false;
             this.fetchWeather();
@@ -321,6 +1076,7 @@
             this.mapTileError = false;
             this.fetchWeather();
           },
+
           latLonToTileXY(lat, lon, z){
             const n = Math.pow(2, z);
             const xt = Math.floor((lon + 180) / 360 * n);
@@ -330,28 +1086,23 @@
             const y = Math.min(Math.max(yt, 0), n - 1);
             return { x, y, n };
           },
+
           osmTileUrl(z, x, y){
-            // 使用官方 tile 服務（若環境擋外部圖片，會顯示 fallback 文案）
             return `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
           },
+
           openStreetMapUrl(lat, lon, zoom=12){
             const la = Number(lat), lo = Number(lon);
             if(!Number.isFinite(la) || !Number.isFinite(lo)) return 'https://www.openstreetmap.org';
             return `https://www.openstreetmap.org/?mlat=${encodeURIComponent(la)}&mlon=${encodeURIComponent(lo)}#map=${encodeURIComponent(zoom)}/${encodeURIComponent(la)}/${encodeURIComponent(lo)}`;
           },
+
           googleMapsLatLonUrl(lat, lon){
             const la = Number(lat), lo = Number(lon);
             if(!Number.isFinite(la) || !Number.isFinite(lo)) return 'https://www.google.com/maps';
             return `https://www.google.com/maps?q=${encodeURIComponent(la+','+lo)}`;
           },
-          toggleEdit(){ this.editMode=!this.editMode; },
-          onBlurText(){},
-          resetDone(){},
-          addTask(){},
-          deleteTask(){},
-          isDone(){ return false; },
-          toggleDone(){},
-          scrollTop(){ window.scrollTo({top:0, behavior:'smooth'}); },
+
           weatherCodeToText(code){
             if(code === 0) return '晴';
             if([1,2,3].includes(code)) return '多雲';
@@ -363,6 +1114,7 @@
             if([95,96,99].includes(code)) return '雷雨';
             return '不明';
           },
+
           async fetchWeather(){
             const d = this.selectedDay;
             if(!d?.base?.lat || !d?.base?.lon) return;
@@ -385,28 +1137,9 @@
                 precip: Math.round((p[i] ?? 0) * 10) / 10,
               }));
             }catch(_){
-              this.weather.error='天氣讀取失敗（可能是網路/跨域）。';
+              this.weather.error='天氣讀取失敗（可能是網路或 API 暫時不可用）。';
             }finally{
               this.weather.loading=false;
-            }
-          },
-          persist(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(this.plan)); }catch(_){ } },
-          loadFromHashOrLocal(){
-            const h = location.hash || '';
-            const m = h.match(/#p=([^&]+)/);
-            if(m && m[1]){
-              try{
-                const str = b64UrlDecode(m[1]);
-                this.plan = JSON.parse(str);
-                this.persist();
-                return;
-              }catch(_){ }
-            }
-            try{
-              const raw = localStorage.getItem(LS_KEY);
-              this.plan = raw ? JSON.parse(raw) : deepClone(defaultPlan);
-            }catch(_){
-              this.plan = deepClone(defaultPlan);
             }
           }
         }
