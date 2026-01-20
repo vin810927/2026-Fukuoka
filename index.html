@@ -1,8 +1,17 @@
 <!--
   九州賞櫻自駕 2026｜單檔行程 Web App
-  Version: v0.5.1
-  Updated: 2026-01-18 (Asia/Taipei)
+  Version: v0.5.2
+  Updated: 2026-01-20 (Asia/Taipei)
   Tech: Tailwind CDN + Vue 3 (global build) + Open-Meteo
+
+  Changelog (v0.5.2)
+  - 修正 defaultPlan 物件結構（避免 SyntaxError: Unexpected string）
+  - 寫入租車預約：TOYOTA 租車（C3 禁菸）
+    * 取車：2026/03/25 13:00 福岡空港（國內線）
+    * 還車：2026/03/27 18:00 博多站（博多口）
+    * 加購：NOC 免除、ETC 卡租用
+    * 提醒：還車前加滿油、建議 17:15 前回到博多站附近
+
   Notes:
   - 支援：內容可編輯（contenteditable）＋ localStorage 自動保存
   - 支援：Open-Meteo 5 日預報（依每日 base 座標）
@@ -78,7 +87,7 @@
         </div>
         <div class="bg-white rounded-2xl shadow-soft border border-stone-200 p-4">
           <div class="text-xs text-stone-500">交通</div>
-          <div class="mt-1 text-sm text-stone-700 editable" :contenteditable="editMode" @blur="onBlurText($event, 'meta.mobility')">{{ plan.meta.mobility }}</div>
+          <div class="mt-1 text-sm text-stone-700 whitespace-pre-wrap editable" :contenteditable="editMode" @blur="onBlurText($event, 'meta.mobility')">{{ plan.meta.mobility }}</div>
           <div class="mt-2 text-xs text-stone-500">攝影</div>
           <div class="mt-1 text-sm text-stone-700 editable" :contenteditable="editMode" @blur="onBlurText($event, 'meta.gear')">{{ plan.meta.gear }}</div>
         </div>
@@ -118,7 +127,7 @@
             <input type="checkbox" class="mt-1 h-5 w-5 accent-stone-700" :checked="isDone('task', t.id)" @change="toggleDone('task', t.id)" />
             <div class="flex-1">
               <div class="text-sm font-medium editable" :contenteditable="editMode" @blur="onBlurText($event, 'tasks.' + ti + '.title')">{{ t.title }}</div>
-              <div class="mt-1 text-xs text-stone-600 editable" :contenteditable="editMode" @blur="onBlurText($event, 'tasks.' + ti + '.note')">{{ t.note }}</div>
+              <div class="mt-1 text-xs text-stone-600 whitespace-pre-wrap editable" :contenteditable="editMode" @blur="onBlurText($event, 'tasks.' + ti + '.note')">{{ t.note }}</div>
             </div>
             <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50" @click="deleteTask(ti)">刪除</button>
           </div>
@@ -189,10 +198,28 @@
         </div>
       </section>
 
-      <!-- Notes -->
-      <section class="mt-4 bg-white rounded-2xl shadow-soft border border-stone-200 p-4">
-        <div class="text-sm font-semibold">備忘</div>
-        <div class="mt-2 text-sm text-stone-700 whitespace-pre-wrap editable" :contenteditable="editMode" @blur="onBlurText($event, 'meta.notes')">{{ plan.meta.notes }}</div>
+      <!-- References -->
+      <section id="refs" class="mt-4 bg-white rounded-2xl shadow-soft border border-stone-200 p-4">
+        <div class="text-sm font-semibold">參考資料</div>
+        <div class="mt-2 space-y-3">
+          <div class="text-sm">
+            <a class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" href="https://kyushu.letsgojp.com/archives/25054/" target="_blank" rel="noreferrer">樂吃購！日本｜福岡櫻花景點 11 選</a>
+            <div class="mt-2 text-xs text-stone-500">（用於福岡市內/北九州一帶的賞櫻點查詢與備案。）</div>
+          </div>
+
+          <div class="pt-2 border-t border-stone-200">
+            <div class="text-xs text-stone-500">額外賞櫻景點（備案 / 下次福岡）</div>
+            <ul class="mt-2 list-disc pl-5 text-sm text-stone-700 space-y-1">
+              <li>舞鶴公園・福岡城跡（舞鶴公園）</li>
+              <li>西公園</li>
+              <li>海の中道海浜公園</li>
+              <li>白野江植物公園</li>
+              <li>垣生公園</li>
+              <li>小倉城</li>
+              <li>浅井一本桜（花期可能偏晚）</li>
+            </ul>
+          </div>
+        </div>
       </section>
 
       <!-- Days -->
@@ -296,6 +323,7 @@
     <nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-stone-200 bg-stone-50/90 backdrop-blur">
       <div class="max-w-3xl mx-auto px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
         <a class="tap shrink-0 px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" href="#weather">天氣</a>
+        <a class="tap shrink-0 px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" href="#refs">參考</a>
         <a v-for="(d, i) in plan.days" :key="d.id" class="tap shrink-0 px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="'#day-' + (i+1)">Day {{ i+1 }}</a>
         <button class="tap shrink-0 ml-auto px-3 py-2 rounded-xl bg-stone-800 text-stone-50 text-sm hover:bg-stone-700" @click="scrollTop">回頂部</button>
       </div>
@@ -472,17 +500,44 @@
           title: '2026 九州賞櫻自駕｜Dr. Huang & 太太',
           dateRange: '2026/03/25 (三) - 2026/03/28 (六) · 4天3夜',
           party: '2 人（無長輩/小孩）',
-          mobility: '去程 BR106 抵達 FUK 11:15｜回程 BR101 FUK→TPE 20:55–22:40｜自駕（建議：3/25–3/27）',
+          mobility:
+            '去程：長榮 BR106 08:00 TPE → 11:15 FUK\n' +
+            '租車：TOYOTA 租車（トヨタレンタカー）C3 禁菸\n' +
+            '  - 取車：2026/03/25（三）13:00｜福岡空港（國內線）\n' +
+            '  - 還車：2026/03/27（五）18:00｜博多站（博多口）\n' +
+            '  - 加購：NOC 免除（1,650円）、ETC 卡租用（550円）\n' +
+            '  - 費用：合計 41,800円（含稅）\n' +
+            '回程：長榮 BR101 20:55 FUK → 22:40 TPE',
           gear: 'Sony A7CR：35mm / 24-70mm｜FUJIFILM X-T5：16-300mm',
           notes:
             '已確認住宿：\n' +
             '- 3/25–3/27：星野リゾート 界 阿蘇（KAI Aso）\n' +
             '- 3/27：三井ガーデンホテル福岡祇園（Mitsui Garden Hotel Fukuoka Gion）\n\n' +
             '提醒：\n' +
-            '- 直升機 / Safari / 鐘乳洞 皆視天候與當日營運；請保留「不成行 → 走阿蘇火山景點」的備案。\n' +
-            '- Day4 已鎖回程：BR101 20:55–22:40，白天可排太宰府＋（可選）鳥栖 outlet。\n'
+            '- 直升機 / Safari / 鐘乳洞：視天候與當日營運；請保留「不成行 → 走阿蘇火山景點」的備案。\n' +
+            '- 租車還車：建議 17:15 前回到博多站附近（含塞車/加油/整理緩衝）。\n' +
+            '- Day4 白天可排太宰府＋（可選）鳥栖 outlet，晚班回程。\n'
         },
         tasks: [
+          {
+            id: 'task-car-rental',
+            title: '租車已預約：3/25 13:00 FUK 取車 → 3/27 18:00 博多站還車',
+            note:
+              '租車公司：TOYOTA 租車（トヨタレンタカー）\n' +
+              '車型等級：【禁煙車】C3（或同級）\n' +
+              '取車：2026/03/25（三）13:00｜福岡空港（國內線）\n' +
+              '還車：2026/03/27（五）18:00｜博多站（博多口）\n' +
+              '加購：NOC 免除（1,650円）、ETC 卡租用（550円）\n' +
+              '費用：合計 41,800円（含稅）\n\n' +
+              '提醒：還車前加滿油；建議 17:15 前回到博多站附近，避免門市關門與塞車。'
+          },
+          {
+            id: 'task-kep',
+            title: 'KEP（九州高速 Pass）：出發前再算一次要不要買',
+            note:
+              '租期 3/25–3/27：主要高速段為「福岡空港↔阿蘇周邊↔福岡市區」。\n' +
+              'KEP 不一定划算；待 Day2/Day3 確定是否繞 Safari/洞穴後，再用「高速費 vs KEP」決定。'
+          },
           {
             id: 'task-heli',
             title: '阿蘇火山 直升機（ヘリ遊覧）：預約/買票（候補）',
@@ -502,7 +557,7 @@
               '- 2026/03/15：確認營業時間/最後入場（多數可現場購票）\n\n' +
               '候補：稲積水中鍾乳洞（Inazumi Underwater Cave）\n' +
               'https://inazumi.com/\n\n' +
-              '備註：從阿蘇繞去洞穴通常會增加移動時間；若排了洞穴，火山點/回宿時間需相對縮減。'
+              '備註：從阿蘇繞去洞穴通常會增加移動時間；若排了洞穴，火山點/回城時間需相對縮減。'
           },
           {
             id: 'task-safari',
@@ -525,33 +580,37 @@
             dayLabel: 'Day 1',
             date: '2026/03/25（三）',
             area: '福岡 (Fukuoka) → 阿蘇 (Aso)',
-            title: '直奔阿蘇 · 入住界',
-            summary: '落地後直接取車上阿蘇。下午準時入住界，避免把第一天塞太滿。',
+            title: '落地取車 · 直奔阿蘇 · 入住界',
+            summary: '入境後取車上阿蘇。下午把時間還給界（房內露天風呂＋晚餐）。',
             driveHint: 'FUK → 界 阿蘇（高速＋山路，預留 15–25% 緩衝）',
             base: { name: '星野リゾート 界 阿蘇 (KAI Aso)', lat: 33.08069, lon: 131.193505 },
             stops: [
               {
                 id: 'd1-arrival', time: '11:15', kind: 'drive', level: 'must',
                 title: '抵達：福岡機場 (FUK)', titleLocal: '福岡空港 (Fukuoka Airport)',
-                desc: '入境/取行李後，建議直接前往租車取車點。',
+                desc: '入境/取行李後，前往租車中心（取車點為國內線側）。',
                 bestShot: '', lens: '', mapsQuery: 'Fukuoka Airport', links: [], stayMins: 60, costJPY: 0
               },
               {
-                id: 'd1-car', time: '12:30', kind: 'drive', level: 'must',
-                title: '取車：福岡機場 租車（建議）', titleLocal: '',
-                desc: '確認 ETC/KEP、車況與拍照紀錄。\n（若要保守：以 3/25–3/27 租車最省事）',
-                bestShot: '', lens: '', mapsQuery: '福岡空港 レンタカー', links: [], stayMins: 45, costJPY: 0
+                id: 'd1-car', time: '13:00', kind: 'drive', level: 'must',
+                title: '取車：TOYOTA Rent-A-Car（福岡空港・国内線）',
+                titleLocal: 'トヨタレンタカー 福岡空港（国内線）',
+                desc:
+                  '已預約：C3 禁菸。\n' +
+                  '加購：NOC 免除、ETC 卡租用。\n' +
+                  '取車時：確認車況拍照、確認加油/還車規則、設定導航。',
+                bestShot: '', lens: '', mapsQuery: 'トヨタレンタカー 福岡空港 国内線', links: [], stayMins: 45, costJPY: 0
               },
               {
-                id: 'd1-drive', time: '13:30', kind: 'drive', level: 'must',
+                id: 'd1-drive', time: '13:45', kind: 'drive', level: 'must',
                 title: '移動：福岡 → 阿蘇（界 阿蘇）', titleLocal: '',
                 desc: '長距離移動，建議至少安排 1 次休息站。',
                 bestShot: '', lens: '', mapsQuery: '星野リゾート 界 阿蘇', links: [], stayMins: 180, costJPY: 0
               },
               {
-                id: 'd1-kai', time: '15:00', kind: 'hotel', level: 'must',
+                id: 'd1-kai', time: '16:30', kind: 'hotel', level: 'must',
                 title: '入住：星野リゾート 界 阿蘇 (KAI Aso)', titleLocal: '星野リゾート 界 阿蘇',
-                desc: '下午完全留給房內露天風呂與園區散步。',
+                desc: '下午留給房內露天風呂與園區散步。',
                 bestShot: '昏/夜',
                 lens: '室內：35mm；庭園層次：50–70mm。',
                 mapsQuery: '星野リゾート 界 阿蘇',
@@ -560,13 +619,6 @@
                   { label: '交通', url: 'https://hoshinoresorts.com/ja/hotels/kaiaso/access/' }
                 ],
                 stayMins: 60, costJPY: 0
-              },
-              {
-                id: 'd1-onsen', time: '17:00', kind: 'spot', level: 'must',
-                title: '房內露天風呂時間', titleLocal: '',
-                desc: '把這段視為 Day1 的核心。早睡，為 Day2 早起留體力。',
-                bestShot: '夜', lens: '不建議帶多鏡頭；用手機/35mm 隨拍即可。',
-                mapsQuery: '', links: [], stayMins: 120, costJPY: 0
               }
             ]
           },
@@ -622,14 +674,6 @@
                 food: { name: 'あか牛（店家待定）', nameLocal: 'あか牛丼', tabelogScore: '', tabelogUrl: '', reserve: { tablecheck: '', hotpepper: '', omakase: '', official: '' }, note: '先以「不排隊」為優先；到時可再補 2–3 間候補名單。' }
               },
               {
-                id: 'd2-shirakawa', time: '15:00', kind: 'spot', level: 'backup',
-                title: '備案：白川水源 (Shirakawa Suigen)', titleLocal: '白川水源',
-                desc: '若火口封閉或天候不佳，轉成短停補位。',
-                bestShot: '午前/午後',
-                lens: '24–35mm 水面紋理；需要定格水流時提高快門。',
-                mapsQuery: '白川水源', links: [], stayMins: 30, costJPY: 0
-              },
-              {
                 id: 'd2-back', time: '15:30', kind: 'drive', level: 'must',
                 title: '回到界阿蘇 · 泡湯/休息', titleLocal: '',
                 desc: '把下午還給住宿本身：房內露天風呂、散步、晚餐。',
@@ -643,8 +687,8 @@
             dayLabel: 'Day 3',
             date: '2026/03/27（五）',
             area: '阿蘇 →（候補：Safari/洞）→ 福岡祇園',
-            title: '候補活動 · 回到福岡',
-            summary: '上午可擇一：Safari / 鐘乳洞（皆為繞路選項）。下午回福岡，晚上泡大浴場＋逛街。',
+            title: '候補活動 · 回到福岡 · 還車',
+            summary: '上午可擇一：Safari / 鐘乳洞（皆為繞路選項）。下午回福岡，18:00 博多站還車，晚上大浴場＋逛街。',
             driveHint: '界 阿蘇 → 福岡（若繞 Safari/洞，回城時間會變晚）',
             base: { name: '三井ガーデンホテル福岡祇園 (Mitsui Garden Hotel Fukuoka Gion)', lat: 33.5929, lon: 130.4139 },
             stops: [
@@ -658,7 +702,7 @@
                 id: 'd3-safari', time: '11:30', kind: 'spot', level: 'backup',
                 title: '候補：アフリカンサファリ（African Safari）· MyCar Safari',
                 titleLocal: '九州自然動物公園 アフリカンサファリ',
-                desc: '可自駕入園（Safari Zone）。\n注意：這會讓 Day3 成為「活動＋長距離移動日」。',
+                desc: '可自駕入園（Safari Zone）。\n注意：這會讓 Day3 變成「活動＋長距離移動日」。',
                 bestShot: '午前/午後',
                 lens: 'X-T5 16–300mm：動物特寫；車內反光請把鏡頭貼近玻璃。',
                 mapsQuery: 'アフリカンサファリ',
@@ -682,18 +726,22 @@
               },
               {
                 id: 'd3-drive', time: '15:30', kind: 'drive', level: 'must',
-                title: '移動：回到福岡（祇園）', titleLocal: '',
-                desc: '進市區前先確認油量。若路況不佳，晚餐採「博多站商圈」就近解決。',
-                bestShot: '', lens: '', mapsQuery: '三井ガーデンホテル福岡祇園', links: [], stayMins: 180, costJPY: 0
+                title: '移動：回到福岡（博多/祇園）', titleLocal: '',
+                desc: '進市區前先確認油量與剩餘時間（18:00 要還車）。必要時晚餐採「博多站商圈」就近解決。',
+                bestShot: '', lens: '', mapsQuery: '博多駅', links: [], stayMins: 150, costJPY: 0
               },
               {
-                id: 'd3-car-return', time: '17:30', kind: 'drive', level: 'flex',
-                title: '建議：福岡機場還車（若租 3/25–3/27）', titleLocal: '',
-                desc: '把車在 3/27 晚上還掉，避免市區停車與隔天還車壓力。\n還車後可搭地鐵回祇園。',
-                bestShot: '', lens: '', mapsQuery: '福岡空港 レンタカー 返却', links: [], stayMins: 60, costJPY: 0
+                id: 'd3-return', time: '18:00', kind: 'drive', level: 'must',
+                title: '還車：TOYOTA Rent-A-Car（博多站・博多口）',
+                titleLocal: 'トヨタレンタカー 博多駅 博多口',
+                desc:
+                  '還車前加滿油、整理行李。\n' +
+                  '建議 17:15 前回到博多站附近（含塞車/加油緩衝）。\n' +
+                  '若延誤：先確認門市最晚受理時間。',
+                bestShot: '', lens: '', mapsQuery: 'トヨタレンタカー 博多駅 博多口', links: [], stayMins: 30, costJPY: 0
               },
               {
-                id: 'd3-hotel', time: '18:30', kind: 'hotel', level: 'must',
+                id: 'd3-hotel', time: '19:00', kind: 'hotel', level: 'must',
                 title: '入住：三井ガーデンホテル福岡祇園', titleLocal: '三井ガーデンホテル福岡祇園',
                 desc: '13F 大浴場：先泡湯回血，再決定逛街/晚餐。',
                 bestShot: '夜', lens: '夜景/街景：35mm。',
@@ -705,7 +753,7 @@
                 desc: '原則：不為了名店把最後一晚變成排隊夜。\n可用你整理的「福岡美食地圖」挑一間就近解決。',
                 bestShot: '', lens: '食物：35mm。',
                 mapsQuery: '博多駅', links: [], stayMins: 90, costJPY: 9000,
-                food: { name: '晚餐候補（待定）', nameLocal: '', tabelogScore: '', tabelogUrl: '', reserve: { tablecheck: '', hotpepper: '', omakase: '', official: '' }, note: '若想吃 Omakase，我可以再補「博多站步行圈」2–3 間候補＋訂位連結。' }
+                food: { name: '晚餐候補（待定）', nameLocal: '', tabelogScore: '', tabelogUrl: '', reserve: { tablecheck: '', hotpepper: '', omakase: '', official: '' }, note: '若想吃 Omakase，我可以再補「博多站/祇園步行圈」2–3 間候補＋訂位連結。' }
               }
             ]
           },
@@ -716,7 +764,7 @@
             area: '太宰府 →（可選）鳥栖 outlet → FUK',
             title: '太宰府 · 逛街 · 晚班回程',
             summary: '早上太宰府參拜；下午視體力去鳥栖 Premium Outlets；晚班 BR101 回台。',
-            driveHint: 'Day4 建議用電車（若車已在 3/27 還掉）',
+            driveHint: 'Day4 建議用電車（車已於 3/27 18:00 還掉）',
             base: { name: '福岡（祇園）', lat: 33.5929, lon: 130.4139 },
             stops: [
               {
@@ -794,7 +842,7 @@
         },
         computed: {
           totalStops: function(){
-            var i, j;
+            var i;
             var dayStops = 0;
             for (i = 0; i < this.plan.days.length; i++) dayStops += (this.plan.days[i].stops ? this.plan.days[i].stops.length : 0);
             var taskStops = this.plan.tasks ? this.plan.tasks.length : 0;
@@ -839,7 +887,7 @@
           thumbTiles: function(){
             var lat = Number(this.currentLat);
             var lon = Number(this.currentLon);
-            if (!isFinite(lat) || !isFinite(lon) || lat === 0 && lon === 0) return ['', '', '', ''];
+            if (!isFinite(lat) || !isFinite(lon) || (lat === 0 && lon === 0)) return ['', '', '', ''];
             var z = this.thumbZoom;
             var xy = latLonToTileXY(lat, lon, z);
             var x = xy.x, y = xy.y;
@@ -1096,7 +1144,6 @@
             }
           },
           copyText: function(text){
-            var self = this;
             if (navigator.clipboard && navigator.clipboard.writeText) {
               navigator.clipboard.writeText(text).then(function(){ alert('已複製'); }).catch(function(){ alert('複製失敗（瀏覽器限制）。'); });
               return;
@@ -1191,8 +1238,10 @@
           console.assert(b64UrlDecode(b64UrlEncode('hello')) === 'hello', 'b64Url roundtrip');
           var t = latLonToTileXY(33.59, 130.42, 12);
           console.assert(typeof t.x === 'number' && typeof t.y === 'number', 'tile conversion returns numbers');
+          console.assert(defaultPlan && defaultPlan.meta && typeof defaultPlan.meta.mobility === 'string', 'defaultPlan.meta.mobility should be string');
           console.assert(defaultPlan.days && defaultPlan.days.length >= 4, 'defaultPlan should have >= 4 days');
           console.assert(defaultPlan.tasks && defaultPlan.tasks.length >= 3, 'defaultPlan should have >= 3 tasks');
+          console.assert(defaultPlan.tasks[0] && defaultPlan.tasks[0].title, 'first task should exist');
         } catch (e) {
           console.warn('Smoke tests failed:', e);
         }
