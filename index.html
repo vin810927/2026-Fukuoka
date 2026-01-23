@@ -1,6 +1,6 @@
 <!--
   九州賞櫻自駕 2026｜單檔行程 Web App
-  Version: v0.4.2
+  Version: v0.4.3
   Updated: 2026-01-24 (Asia/Taipei)
   Tech: Tailwind CDN + Vue 3 (global build) + Open-Meteo
   Notes:
@@ -227,22 +227,22 @@
                     <div class="flex items-start justify-between gap-3">
                       <div class="min-w-0">
                         <div class="text-xs text-stone-500">餐廳</div>
-                        <div class="text-sm font-semibold truncate">{{ stop.food.name }}</div>
-                        <div class="text-xs text-stone-600" v-if="stop.food.nameLocal">{{ stop.food.nameLocal }}</div>
-                        <div class="mt-1 text-xs text-stone-600" v-if="stop.food.tabelogScore">Tabelog：<span class="font-semibold tabular-nums">{{ stop.food.tabelogScore }}</span></div>
+                        <div class="text-sm font-semibold truncate">{{ stop.food?.name }}</div>
+                        <div class="text-xs text-stone-600" v-if="stop.food?.nameLocal">{{ stop.food.nameLocal }}</div>
+                        <div class="mt-1 text-xs text-stone-600" v-if="stop.food?.tabelogScore">Tabelog：<span class="font-semibold tabular-nums">{{ stop.food.tabelogScore }}</span></div>
                       </div>
                       <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-stone-50 text-sm hover:bg-stone-100" @click="openFoodEditor(di, si)">編輯餐廳資訊</button>
                     </div>
 
                     <div class="mt-3 flex flex-wrap gap-2">
-                      <a v-if="stop.food.tabelogUrl" class="tap inline-flex items-center px-3 py-2 rounded-xl bg-stone-800 text-stone-50 text-sm hover:bg-stone-700" :href="stop.food.tabelogUrl" target="_blank" rel="noreferrer">食べログ</a>
-                      <a v-if="stop.food.reserve.tablecheck" class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="stop.food.reserve.tablecheck" target="_blank" rel="noreferrer">TableCheck 訂位</a>
-                      <a v-if="stop.food.reserve.hotpepper" class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="stop.food.reserve.hotpepper" target="_blank" rel="noreferrer">HotPepper 訂位</a>
-                      <a v-if="stop.food.reserve.omakase" class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="stop.food.reserve.omakase" target="_blank" rel="noreferrer">Omakase 訂位</a>
-                      <a v-if="stop.food.reserve.official" class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="stop.food.reserve.official" target="_blank" rel="noreferrer">官方/店家</a>
+                      <a v-if="stop.food?.tabelogUrl" class="tap inline-flex items-center px-3 py-2 rounded-xl bg-stone-800 text-stone-50 text-sm hover:bg-stone-700" :href="stop.food.tabelogUrl" target="_blank" rel="noreferrer">食べログ</a>
+                      <a v-if="stop.food?.reserve?.tablecheck" class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="stop.food.reserve.tablecheck" target="_blank" rel="noreferrer">TableCheck 訂位</a>
+                      <a v-if="stop.food?.reserve?.hotpepper" class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="stop.food.reserve.hotpepper" target="_blank" rel="noreferrer">HotPepper 訂位</a>
+                      <a v-if="stop.food?.reserve?.omakase" class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="stop.food.reserve.omakase" target="_blank" rel="noreferrer">Omakase 訂位</a>
+                      <a v-if="stop.food?.reserve?.official" class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="stop.food.reserve.official" target="_blank" rel="noreferrer">官方/店家</a>
                     </div>
 
-                    <div v-if="stop.food.note" class="mt-2 text-xs text-stone-600 whitespace-pre-wrap">{{ stop.food.note }}</div>
+                    <div v-if="stop.food?.note" class="mt-2 text-xs text-stone-600 whitespace-pre-wrap">{{ stop.food.note }}</div>
                   </div>
 
                   <!-- Links -->
@@ -511,7 +511,21 @@
           driveHint: '阿蘇周邊移動',
           base: { name: '阿蘇周邊（Base）', lat: 33.08069, lon: 131.193505 },
           stops: [
-            $1
+            {
+              id: 'd2-kusasenri',
+              time: '10:00',
+              kind: 'spot',
+              level: 'must',
+              title: '草千里ヶ浜 (Kusasenri-ga-hama)',
+              titleLocal: '草千里ヶ浜',
+              desc: '火山地景的低飽和度主場。風大時注意灰塵與鏡頭保護。',
+              bestShot: '晨/午前',
+              lens: '24mm 拍「中岳＋草原」；70mm 壓縮地形與馬匹。\nX-T5：中長焦抓人作尺度。',
+              mapsQuery: '草千里ヶ浜',
+              links: [],
+              stayMins: 60,
+              costJPY: 0,
+            },
             {
               id: 'd2-nakadake',
               time: '11:15',
@@ -519,11 +533,9 @@
               level: 'flex',
               title: '阿蘇中岳火口（Nakadake Crater）',
               titleLocal: '阿蘇山 中岳火口',
-              desc: '依當日「火口規制」決定是否上到火口近距離。
-若管制，改在草千里／阿蘇火山博物館／山上ターミナル周邊取景即可。',
+              desc: '依當日「火口規制」決定是否上到火口近距離。\n若管制，改在草千里／阿蘇火山博物館／山上ターミナル周邊取景即可。',
               bestShot: '午前/昏',
-              lens: '24mm 拍火口地形；70mm 壓縮噴氣與山稜。
-風大或有火山灰：準備拭鏡布與簡易防護。',
+              lens: '24mm 拍火口地形；70mm 壓縮噴氣與山稜。\n風大或有火山灰：準備拭鏡布與簡易防護。',
               mapsQuery: '阿蘇山 中岳火口',
               links: [
                 { label: '火口規制情報（JP）', url: 'https://www.aso-volcano.jp/' },
@@ -694,7 +706,11 @@
         try{
           console.assert(b64UrlDecode(b64UrlEncode('test✓')) === 'test✓', 'b64 url roundtrip');
           const tmp = deepClone(defaultPlan);
-          console.assert(Array.isArray(tmp.days) && tmp.days.length >= 1, 'defaultPlan.days exists');
+          console.assert(Array.isArray(tmp.days) && tmp.days.length === 4, 'defaultPlan.days should be 4');
+          const day2 = tmp.days.find(d => d.id === 'day2');
+          console.assert(!!day2, 'day2 exists');
+          console.assert(day2.stops.some(s => s.id === 'd2-nakadake'), 'day2 has nakadake');
+          console.assert(day2.stops.some(s => s.id === 'd2-kusasenri'), 'day2 has kusasenri');
         }catch(e){ console.warn('Smoke tests failed', e); }
       },
       methods: {
@@ -721,6 +737,7 @@
           }[level]) || 'border-stone-300 bg-white text-stone-700';
         },
 
+        // --- Editable helpers ---
         toggleEdit(){ this.editMode = !this.editMode; },
         onBlurText(evt, path){
           if(!this.editMode) return;
@@ -739,6 +756,7 @@
           cur[segs[segs.length-1]] = value;
         },
 
+        // --- Done state ---
         doneKey(dayId, stopId){ return `${dayId}::${stopId}`; },
         loadDone(){
           try{
@@ -762,6 +780,7 @@
           this.saveDone();
         },
 
+        // --- Weather ---
         weatherCodeToText(code){
           if(code === 0) return '晴';
           if([1,2,3].includes(code)) return '多雲';
@@ -802,6 +821,7 @@
           }
         },
 
+        // --- Maps ---
         mapsSearchUrl(q){
           return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
         },
@@ -820,6 +840,7 @@
           window.open(url, '_blank', 'noreferrer');
         },
 
+        // --- Food editor ---
         openFoodEditor(di, si){
           const stop = this.plan.days[di].stops[si];
           if(!stop.food){
@@ -838,6 +859,7 @@
           this.closeFoodEditor();
         },
 
+        // --- Stop menu ---
         openStopMenu(di, si){
           const stop = this.plan.days[di].stops[si];
           this.modals.stop = { open:true, di, si };
@@ -860,6 +882,7 @@
           this.closeStopMenu();
         },
 
+        // --- JSON import/export ---
         openJson(mode){
           this.modals.json.open = true;
           this.modals.json.mode = mode;
@@ -884,6 +907,7 @@
           catch(_){ alert('複製失敗（瀏覽器限制）。'); }
         },
 
+        // --- Share (hash) ---
         setHashFromPlan(){
           try{
             const str = JSON.stringify(this.plan);
@@ -897,6 +921,7 @@
           this.copyText(url);
         },
 
+        // --- Persistence ---
         persist(){
           try{ localStorage.setItem(LS_KEY, JSON.stringify(this.plan)); }catch(_){ }
         },
@@ -928,6 +953,7 @@
           history.replaceState(null, '', location.pathname + location.search);
         },
 
+        // --- Tasks ---
         addTask(){
           this.plan.tasks.push({ id: `task-${Date.now()}`, title: '新任務', note: '（點編輯後可修改）' });
           this.persist();
@@ -941,6 +967,7 @@
           this.saveDone();
         },
 
+        // --- Misc ---
         scrollTop(){ window.scrollTo({ top: 0, behavior: 'smooth' }); }
       }
     }).mount('#app');
