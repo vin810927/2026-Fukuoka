@@ -1,13 +1,8 @@
 <!--
   九州賞櫻自駕 2026｜單檔行程 Web App
-  Version: v0.4.3
-  Updated: 2026-01-24 (Asia/Taipei)
+  Version: v0.5.1
+  Updated: 2026-02-03 (Asia/Taipei)
   Tech: Tailwind CDN + Vue 3 (global build) + Open-Meteo
-  Notes:
-  - 支援：內容可編輯（contenteditable）＋ localStorage 自動保存
-  - 支援：Open-Meteo 5 日預報（依每日 base 座標）
-  - 支援：餐廳區塊（Tabelog 分數 / 訂位連結）
-  - 支援：分享（URL Hash 壓縮 JSON）
 -->
 <!doctype html>
 <html lang="zh-Hant">
@@ -33,12 +28,10 @@
     .editable[contenteditable="true"]{ outline: 2px dashed rgba(120,113,108,0.35); outline-offset: 6px; border-radius: 14px; }
     .editable[contenteditable="true"]:focus{ outline-color: rgba(120,113,108,0.7); }
     .tap{ min-height:44px; }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
   </style>
 </head>
 <body class="bg-stone-50 text-stone-800 font-sans">
   <div id="app" class="min-h-screen">
-    <!-- Top bar -->
     <header class="sticky top-0 z-30 bg-stone-50/85 backdrop-blur border-b border-stone-200">
       <div class="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
         <div class="flex-1">
@@ -50,7 +43,6 @@
     </header>
 
     <main class="max-w-3xl mx-auto px-4 py-4 pb-28">
-      <!-- Meta cards -->
       <section class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div class="bg-white rounded-2xl shadow-soft border border-stone-200 p-4">
           <div class="text-xs text-stone-500">日期</div>
@@ -86,7 +78,6 @@
         </div>
       </section>
 
-      <!-- Key tasks -->
       <section class="mt-4 bg-white rounded-2xl shadow-soft border border-stone-200 p-4">
         <div class="flex items-center justify-between">
           <div>
@@ -100,14 +91,13 @@
             <input type="checkbox" class="mt-1 h-5 w-5 accent-stone-700" :checked="isDone('task', t.id)" @change="toggleDone('task', t.id)" />
             <div class="flex-1">
               <div class="text-sm font-medium editable" :contenteditable="editMode" @blur="onBlurText($event, `tasks.${ti}.title`)">{{ t.title }}</div>
-              <div class="mt-1 text-xs text-stone-600 editable" :contenteditable="editMode" @blur="onBlurText($event, `tasks.${ti}.note`)">{{ t.note }}</div>
+              <div class="mt-1 text-xs text-stone-600 whitespace-pre-wrap editable" :contenteditable="editMode" @blur="onBlurText($event, `tasks.${ti}.note`)">{{ t.note }}</div>
             </div>
             <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50" @click="deleteTask(ti)">刪除</button>
           </div>
         </div>
       </section>
 
-      <!-- Weather -->
       <section id="weather" class="mt-4 bg-white rounded-2xl shadow-soft border border-stone-200 p-4">
         <div class="flex items-center justify-between gap-3">
           <div>
@@ -136,53 +126,35 @@
         </div>
       </section>
 
-      <!-- Notes -->
       <section class="mt-4 bg-white rounded-2xl shadow-soft border border-stone-200 p-4">
         <div class="text-sm font-semibold">備忘</div>
         <div class="mt-2 text-sm text-stone-700 whitespace-pre-wrap editable" :contenteditable="editMode" @blur="onBlurText($event, 'meta.notes')">{{ plan.meta.notes }}</div>
       </section>
 
-      <!-- Links (below Notes) -->
-      <section id="memo-links" class="mt-3 bg-white rounded-2xl shadow-soft border border-stone-200 p-4">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <div class="text-sm font-semibold">查詢工具：花況 & 規制</div>
-            <div class="text-xs text-stone-500">出發前 7 天開始每天看；當天早上再確認一次（特別是阿蘇火口規制）。</div>
-          </div>
-          <a class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50" href="#weather">回天氣</a>
+      <section class="mt-3 bg-white rounded-2xl shadow-soft border border-stone-200 p-4">
+        <div class="text-sm font-semibold">參考資料</div>
+        <div class="mt-2 text-xs text-stone-600">（用於福岡市內 / 北九州一帶的賞櫻點查詢與備案。）</div>
+
+        <div class="mt-3 flex flex-wrap gap-2">
+          <a class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" href="https://kyushu.letsgojp.com/archives/25054/" target="_blank" rel="noreferrer">樂吃購！日本｜福岡櫻花景點 11 選</a>
+          <a class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" href="https://weathernews.jp/sakura/" target="_blank" rel="noreferrer">花況查詢：ウェザーニュース 桜</a>
+          <a class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" href="https://tenki.jp/sakura/" target="_blank" rel="noreferrer">花況查詢：tenki.jp 桜</a>
         </div>
 
-        <div class="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div class="rounded-2xl border border-stone-200 bg-stone-50 p-3">
-            <div class="text-xs text-stone-500">花況（南阿蘇・高森）</div>
-            <div class="mt-2 flex flex-wrap gap-2">
-              <a class="tap inline-flex items-center px-3 py-2 rounded-xl bg-stone-800 text-stone-50 text-sm hover:bg-stone-700" href="https://minamiaso.info/blog/2025sakura/" target="_blank" rel="noreferrer">南阿蘇 開花情報（觀光局）</a>
-              <a class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" href="https://www.town.kumamoto-takamori.lg.jp/site/kanko/7741.html" target="_blank" rel="noreferrer">高森町 桜開花情報</a>
-              <a class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" href="https://weathernews.jp/sakura/spot/8604/" target="_blank" rel="noreferrer">Weathernews：一心行</a>
-              <a class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" href="https://www.google.com/search?q=site%3Aminamiaso.info+%E3%81%95%E3%81%8F%E3%82%89+%E9%96%8B%E8%8A%B1%E6%83%85%E5%A0%B1" target="_blank" rel="noreferrer">Google：站內搜「開花情報」</a>
-              <a class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" href="https://x.com/search?q=%E9%AB%98%E6%A3%AE%E5%B3%A0%E5%8D%83%E6%9C%AC%E6%A1%9C%20%E9%96%8B%E8%8A%B1&src=typed_query" target="_blank" rel="noreferrer">X：高森峠千本桜</a>
-            </div>
-            <div class="mt-2 text-xs text-stone-600 whitespace-pre-wrap">判讀建議：
-- 南阿蘇觀光局：看「照片＋文字」最可靠（每年頁面可能換年份）。
-- 高森町：會直接寫「滿開/散り始め」等級。
-- Weathernews/X：用來補「即時」現況。</div>
-          </div>
-
-          <div class="rounded-2xl border border-stone-200 bg-stone-50 p-3">
-            <div class="text-xs text-stone-500">阿蘇火口（中岳火口）規制</div>
-            <div class="mt-2 flex flex-wrap gap-2">
-              <a class="tap inline-flex items-center px-3 py-2 rounded-xl bg-stone-800 text-stone-50 text-sm hover:bg-stone-700" href="https://www.aso-volcano.jp/" target="_blank" rel="noreferrer">火口規制情報（JP）</a>
-              <a class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" href="https://www.aso-volcano.jp/eng/" target="_blank" rel="noreferrer">Crater Restriction（EN）</a>
-              <a class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" href="https://kumamoto.guide/important/detail/500" target="_blank" rel="noreferrer">熊本觀光：重要公告</a>
-            </div>
-            <div class="mt-2 text-xs text-stone-600 whitespace-pre-wrap">使用方式：
-- 以「火口規制情報」為準：可能因火山氣體/天候/管制臨時關閉。
-- 若當天規制：草千里・阿蘇火山博物館/山上ターミナル通常仍可到。</div>
-          </div>
+        <div class="mt-4 pt-3 border-t border-stone-200">
+          <div class="text-xs text-stone-500">額外賞櫻景點（備案 / 下次福岡）</div>
+          <ul class="mt-2 text-sm text-stone-700 space-y-1 list-disc pl-5">
+            <li>舞鶴公園・福岡城跡（舞鶴公園）</li>
+            <li>西公園</li>
+            <li>海の中道海浜公園</li>
+            <li>白野江植物公園</li>
+            <li>垣生公園</li>
+            <li>小倉城</li>
+            <li>浅井一本桜（花期可能偏晚）</li>
+          </ul>
         </div>
       </section>
 
-      <!-- Days -->
       <section class="mt-4 space-y-3">
         <div v-for="(day, di) in plan.days" :key="day.id" :id="`day-${di+1}`" class="bg-white rounded-2xl shadow-soft border border-stone-200 overflow-hidden">
           <div class="p-4 border-b border-stone-200">
@@ -222,30 +194,6 @@
 
                   <div v-if="stop.lens" class="mt-2 text-xs text-stone-600 whitespace-pre-wrap">📷 {{ stop.lens }}</div>
 
-                  <!-- Food block -->
-                  <div v-if="stop.kind==='food'" class="mt-3 rounded-2xl border border-stone-200 bg-white p-3">
-                    <div class="flex items-start justify-between gap-3">
-                      <div class="min-w-0">
-                        <div class="text-xs text-stone-500">餐廳</div>
-                        <div class="text-sm font-semibold truncate">{{ stop.food?.name }}</div>
-                        <div class="text-xs text-stone-600" v-if="stop.food?.nameLocal">{{ stop.food.nameLocal }}</div>
-                        <div class="mt-1 text-xs text-stone-600" v-if="stop.food?.tabelogScore">Tabelog：<span class="font-semibold tabular-nums">{{ stop.food.tabelogScore }}</span></div>
-                      </div>
-                      <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-stone-50 text-sm hover:bg-stone-100" @click="openFoodEditor(di, si)">編輯餐廳資訊</button>
-                    </div>
-
-                    <div class="mt-3 flex flex-wrap gap-2">
-                      <a v-if="stop.food?.tabelogUrl" class="tap inline-flex items-center px-3 py-2 rounded-xl bg-stone-800 text-stone-50 text-sm hover:bg-stone-700" :href="stop.food.tabelogUrl" target="_blank" rel="noreferrer">食べログ</a>
-                      <a v-if="stop.food?.reserve?.tablecheck" class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="stop.food.reserve.tablecheck" target="_blank" rel="noreferrer">TableCheck 訂位</a>
-                      <a v-if="stop.food?.reserve?.hotpepper" class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="stop.food.reserve.hotpepper" target="_blank" rel="noreferrer">HotPepper 訂位</a>
-                      <a v-if="stop.food?.reserve?.omakase" class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="stop.food.reserve.omakase" target="_blank" rel="noreferrer">Omakase 訂位</a>
-                      <a v-if="stop.food?.reserve?.official" class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="stop.food.reserve.official" target="_blank" rel="noreferrer">官方/店家</a>
-                    </div>
-
-                    <div v-if="stop.food?.note" class="mt-2 text-xs text-stone-600 whitespace-pre-wrap">{{ stop.food.note }}</div>
-                  </div>
-
-                  <!-- Links -->
                   <div class="mt-3 flex flex-wrap gap-2">
                     <a v-if="stop.mapsQuery" class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="mapsSearchUrl(stop.mapsQuery)" target="_blank" rel="noreferrer">Google Maps</a>
                     <a v-for="(lk, li) in (stop.links||[])" :key="li" class="tap inline-flex items-center px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="lk.url" target="_blank" rel="noreferrer">{{ lk.label }}</a>
@@ -264,7 +212,6 @@
         </div>
       </section>
 
-      <!-- Tools -->
       <section class="mt-4 bg-white rounded-2xl shadow-soft border border-stone-200 p-4">
         <div class="text-sm font-semibold">工具</div>
         <div class="mt-3 flex flex-wrap gap-2">
@@ -273,73 +220,20 @@
           <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" @click="copyShare">複製分享連結</button>
           <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" @click="resetPlan">重置（回到預設）</button>
         </div>
-        <div class="mt-2 text-xs text-stone-500">提醒：此檔案可離線使用；若要「線上預覽/分享」，可將此 HTML 放到 GitHub Pages / Netlify / Vercel（靜態站）。</div>
+        <div class="mt-2 text-xs text-stone-500">提醒：此檔案可離線使用；若要線上分享，可放 GitHub Pages / Netlify / Vercel（靜態站）。</div>
       </section>
 
       <div class="h-8"></div>
     </main>
 
-    <!-- Bottom nav -->
     <nav class="fixed bottom-0 left-0 right-0 z-40 border-t border-stone-200 bg-stone-50/90 backdrop-blur">
       <div class="max-w-3xl mx-auto px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
         <a class="tap shrink-0 px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" href="#weather">天氣</a>
-        <a class="tap shrink-0 px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" href="#memo-links">查詢</a>
         <a v-for="(d, i) in plan.days" :key="d.id" class="tap shrink-0 px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" :href="`#day-${i+1}`">Day {{ i+1 }}</a>
         <button class="tap shrink-0 ml-auto px-3 py-2 rounded-xl bg-stone-800 text-stone-50 text-sm hover:bg-stone-700" @click="scrollTop">回頂部</button>
       </div>
     </nav>
 
-    <!-- Food editor modal -->
-    <div v-if="modals.food.open" class="fixed inset-0 z-50 flex items-end md:items-center justify-center">
-      <div class="absolute inset-0 bg-black/25" @click="closeFoodEditor"></div>
-      <div class="relative w-full md:max-w-xl bg-white rounded-t-3xl md:rounded-3xl shadow-soft border border-stone-200 p-4 md:p-5">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <div class="text-sm font-semibold">餐廳資訊</div>
-            <div class="text-xs text-stone-500">會寫入本地儲存與分享連結。</div>
-          </div>
-          <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white text-sm hover:bg-stone-50" @click="closeFoodEditor">關閉</button>
-        </div>
-
-        <div class="mt-4 grid grid-cols-1 gap-3">
-          <label class="text-xs text-stone-600">餐廳名稱</label>
-          <input class="tap w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-sm" v-model="foodForm.name" />
-
-          <label class="text-xs text-stone-600">餐廳名稱（日文/原文）</label>
-          <input class="tap w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-sm" v-model="foodForm.nameLocal" />
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-xs text-stone-600">Tabelog 分數</label>
-              <input class="tap w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-sm" v-model="foodForm.tabelogScore" placeholder="例：3.72" />
-            </div>
-            <div>
-              <label class="text-xs text-stone-600">Tabelog 連結</label>
-              <input class="tap w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-sm" v-model="foodForm.tabelogUrl" placeholder="https://tabelog.com/..." />
-            </div>
-          </div>
-
-          <label class="text-xs text-stone-600">TableCheck</label>
-          <input class="tap w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-sm" v-model="foodForm.reserve.tablecheck" placeholder="https://www.tablecheck.com/..." />
-
-          <label class="text-xs text-stone-600">HotPepper</label>
-          <input class="tap w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-sm" v-model="foodForm.reserve.hotpepper" placeholder="https://www.hotpepper.jp/..." />
-
-          <label class="text-xs text-stone-600">Omakase</label>
-          <input class="tap w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-sm" v-model="foodForm.reserve.omakase" placeholder="https://omakase.in/..." />
-
-          <label class="text-xs text-stone-600">官方/店家</label>
-          <input class="tap w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-sm" v-model="foodForm.reserve.official" placeholder="https://..." />
-
-          <label class="text-xs text-stone-600">備註</label>
-          <textarea class="w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-sm" rows="3" v-model="foodForm.note" placeholder="例：需要排隊/不接受電話預約/建議 18:00 前到…"></textarea>
-
-          <button class="tap w-full px-3 py-3 rounded-2xl bg-stone-800 text-stone-50 text-sm hover:bg-stone-700" @click="saveFood">儲存</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- JSON modal -->
     <div v-if="modals.json.open" class="fixed inset-0 z-50 flex items-end md:items-center justify-center">
       <div class="absolute inset-0 bg-black/25" @click="closeJson"></div>
       <div class="relative w-full md:max-w-2xl bg-white rounded-t-3xl md:rounded-3xl shadow-soft border border-stone-200 p-4 md:p-5">
@@ -358,7 +252,6 @@
       </div>
     </div>
 
-    <!-- Stop menu modal -->
     <div v-if="modals.stop.open" class="fixed inset-0 z-50 flex items-end md:items-center justify-center">
       <div class="absolute inset-0 bg-black/25" @click="closeStopMenu"></div>
       <div class="relative w-full md:max-w-lg bg-white rounded-t-3xl md:rounded-3xl shadow-soft border border-stone-200 p-4 md:p-5">
@@ -383,7 +276,6 @@
             <label class="text-xs text-stone-600">類型</label>
             <select class="tap w-full rounded-xl border border-stone-300 bg-stone-50 px-3 py-2 text-sm" v-model="stopMenu.kind">
               <option value="spot">景點</option>
-              <option value="food">餐廳</option>
               <option value="hotel">住宿</option>
               <option value="drive">自駕/移動</option>
               <option value="task">任務</option>
@@ -402,13 +294,14 @@
         <button class="tap mt-4 w-full px-3 py-3 rounded-2xl bg-stone-800 text-stone-50 text-sm hover:bg-stone-700" @click="applyStopMenu">儲存</button>
       </div>
     </div>
+
   </div>
 
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script>
     const { createApp } = Vue;
 
-    const EXCHANGE_RATE = 4.6; // 粗略換算，可自行改
+    const EXCHANGE_RATE = 4.6;
     const LS_KEY = 'kyushu_sakura_2026_plan_v1';
     const LS_DONE_KEY = 'kyushu_sakura_2026_done_v1';
 
@@ -418,21 +311,27 @@
         title: '2026 九州賞櫻自駕｜Dr. Huang & 太太',
         dateRange: '2026/03/25 (三) - 2026/03/28 (六) · 4天3夜',
         party: '2 人（無長輩/小孩）',
-        mobility: 'BR106 抵達 FUK 11:15｜自駕（KEP+ETC）｜晚班回台',
+        mobility: '去程：BR106 抵達 FUK 11:15｜租車：トヨタレンタカー（Tabirai）3/25 13:00 福岡空港（国内線）取車 → 3/27 18:00 博多駅 博多口 還車｜ETC 卡 + NOC 免責',
         gear: 'Sony A7CR：35mm / 24-70mm｜FUJIFILM X-T5：16-300mm',
-        notes:
-`太宰府：確定要去（可放福岡日早上）。
+        notes: `住宿：
+- 3/25–3/27（連泊 2 晚）：星野リゾート 界 阿蘇（KAI Aso）
+- 3/27：三井ガーデンホテル福岡祇園（大浴場）
 
-自駕：高速/山路請保留 15–25% 緩衝；記得加油與還車前拍照。
+花況查詢：
+- ウェザーニュース 桜：https://weathernews.jp/sakura/
+- tenki.jp 桜：https://tenki.jp/sakura/
 
-直升機：已決定不搭。
-`,
+自駕：ETC 卡 / NOC 免責已含。山路請保留 15–25% 緩衝。`
       },
       tasks: [
+        $1,
         {
           id: 'task-takachiho-boat',
-          title: '高千穂峡 貸しボート：搶預約',
-          note: '規則：乘船日 2 週前 09:00（JST）起可於預約網站申請。\n預約站：高千穂町観光協会（貸しボート予約サイト）',
+          title: '高千穂峡 貸しボート：搶預約（或改走步道）',
+          note: `規則：乘船日 2 週前 09:00（JST）起可線上預約（依官方為準）。
+備案：若沒搶到船 → 走步道看「真名井の滝」＋拍照。
+預約：高千穂町観光協会（貸しボート予約サイト）
+提醒：提早抵達第1御塩井駐車場，熱門時段很快滿。`
         }
       ],
       days: [
@@ -440,197 +339,68 @@
           id: 'day1',
           dayLabel: 'Day 1',
           date: '2026/03/25（三）',
-          area: '福岡 (Fukuoka)',
-          title: '抵達 · 櫻花與城市夜景',
-          summary: '抵達後先把節奏放慢：市內櫻花點＋晚餐，為隔天長途自駕保留體力。',
-          driveHint: '市區移動（步行/地鐵）',
-          base: { name: '博多站周邊（Base）', lat: 33.5896534, lon: 130.4228213 },
+          area: '福岡 (Fukuoka) → 阿蘇 (Aso)',
+          title: '落地即上山 · 界阿蘇入住',
+          summary: '把福岡市區留到回程；Day1 直接進阿蘇，確保界阿蘇的泡湯與早睡。',
+          driveHint: 'FUK→界 阿蘇（長距離，含休息站緩衝）',
+          base: { name: '星野リゾート 界 阿蘇 (KAI Aso)', lat: 33.08069, lon: 131.193505 },
           stops: [
-            {
-              id: 'd1-arrival',
-              time: '11:15',
-              kind: 'drive',
-              level: 'must',
-              title: '抵達：福岡機場 (FUK)',
-              titleLocal: '福岡空港 (Fukuoka Airport)',
-              desc: '入境/取行李後，移動至市區。',
-              bestShot: '',
-              lens: '',
-              mapsQuery: 'Fukuoka Airport',
-              links: [],
-              stayMins: 60,
-              costJPY: 0,
-            },
-            {
-              id: 'd1-maizuru',
-              time: '16:00',
-              kind: 'spot',
-              level: 'must',
-              title: '舞鶴公園 (Maizuru Park) / 福岡城跡',
-              titleLocal: '舞鶴公園・福岡城跡',
-              desc: '櫻花主戰場之一。建議接近黃金時段再進場。',
-              bestShot: '昏',
-              lens: 'A7CR：35mm 走拍；24–70mm 50–70mm 壓縮樹列。',
-              mapsQuery: '舞鶴公園 福岡城跡',
-              links: [],
-              stayMins: 90,
-              costJPY: 0,
-            },
-            {
-              id: 'd1-dinner',
-              time: '19:00',
-              kind: 'food',
-              level: 'must',
-              title: '晚餐：牛腸鍋（擇一）',
-              titleLocal: 'もつ鍋',
-              desc: '備忘：可在餐廳區塊填入 TableCheck/官方訂位。',
-              bestShot: '',
-              lens: '食物：35mm / 50mm；桌面暗可提高 ISO。',
-              mapsQuery: '博多もつ鍋おおやま 本店',
-              links: [],
-              stayMins: 90,
-              costJPY: 8000,
-              food: {
-                name: '博多もつ鍋おおやま 本店',
-                nameLocal: '博多もつ鍋おおやま 本店（おおやま）',
-                tabelogScore: '',
-                tabelogUrl: '',
-                reserve: { tablecheck: '', hotpepper: '', omakase: '', official: '' },
-                note: ''
-              }
-            }
+            { id: 'd1-arrival', time: '11:15', kind: 'drive', level: 'must', title: '抵達：福岡機場 (FUK)', titleLocal: '福岡空港 (Fukuoka Airport)', desc: '入境/取行李後，前往租車櫃台（國內線）。', mapsQuery: '福岡空港 国内線 レンタカー', stayMins: 60, costJPY: 0 },
+            { id: 'd1-car', time: '13:00', kind: 'drive', level: 'must', title: '取車：トヨタレンタカー 福岡空港（国内線）', titleLocal: 'トヨタレンタカー 福岡空港', desc: `預約番号：140768698（Tabirai）
+確認：ETC 卡、NOC 免責、車況拍照。`, mapsQuery: 'トヨタレンタカー 福岡空港 国内線', stayMins: 45, costJPY: 0 },
+            { id: 'd1-drive', time: '13:45', kind: 'drive', level: 'must', title: '移動：福岡 → 界 阿蘇（含休息站）', desc: '建議途中至少停 1 次休息站。策略：不硬塞景點，確保天黑前抵達。', mapsQuery: '星野リゾート 界 阿蘇', stayMins: 210, costJPY: 0 },
+            { id: 'd1-kai', time: '17:00', kind: 'hotel', level: 'must', title: '入住：星野リゾート 界 阿蘇 (KAI Aso)', titleLocal: '星野リゾート 界 阿蘇', desc: 'Day1 行程核心：房內露天風呂、園區散步、早睡。', bestShot: '昏/夜', lens: '室內：35mm；庭園層次：50–70mm。', mapsQuery: '星野リゾート 界 阿蘇', links: [ { label: '官方', url: 'https://hoshinoresorts.com/ja/hotels/kaiaso/' }, { label: '交通', url: 'https://hoshinoresorts.com/ja/hotels/kaiaso/access/' } ], stayMins: 60, costJPY: 0 }
           ]
         },
         {
           id: 'day2',
           dayLabel: 'Day 2',
           date: '2026/03/26（四）',
-          area: '阿蘇 (Aso)',
-          title: '火山地景 · 南阿蘇櫻花（候補）',
-          summary: '以自然地景為主，櫻花看花況決定。',
-          driveHint: '阿蘇周邊移動',
-          base: { name: '阿蘇周邊（Base）', lat: 33.08069, lon: 131.193505 },
+          area: '南阿蘇 (Minami Aso) · 火山與一本櫻',
+          title: '火山地景 · 南阿蘇三大櫻',
+          summary: '以自然景＋櫻花為主：草千里/火口（視封閉）＋一本櫻線，傍晚回界阿蘇泡湯。',
+          driveHint: '界 阿蘇 ↔ 南阿蘇（山路，保留緩衝）',
+          base: { name: '星野リゾート 界 阿蘇 (KAI Aso)', lat: 33.08069, lon: 131.193505 },
           stops: [
-            {
-              id: 'd2-kusasenri',
-              time: '10:00',
-              kind: 'spot',
-              level: 'must',
-              title: '草千里ヶ浜 (Kusasenri-ga-hama)',
-              titleLocal: '草千里ヶ浜',
-              desc: '火山地景的低飽和度主場。風大時注意灰塵與鏡頭保護。',
-              bestShot: '晨/午前',
-              lens: '24mm 拍「中岳＋草原」；70mm 壓縮地形與馬匹。\nX-T5：中長焦抓人作尺度。',
-              mapsQuery: '草千里ヶ浜',
-              links: [],
-              stayMins: 60,
-              costJPY: 0,
-            },
-            {
-              id: 'd2-nakadake',
-              time: '11:15',
-              kind: 'spot',
-              level: 'flex',
-              title: '阿蘇中岳火口（Nakadake Crater）',
-              titleLocal: '阿蘇山 中岳火口',
-              desc: '依當日「火口規制」決定是否上到火口近距離。\n若管制，改在草千里／阿蘇火山博物館／山上ターミナル周邊取景即可。',
-              bestShot: '午前/昏',
-              lens: '24mm 拍火口地形；70mm 壓縮噴氣與山稜。\n風大或有火山灰：準備拭鏡布與簡易防護。',
-              mapsQuery: '阿蘇山 中岳火口',
-              links: [
-                { label: '火口規制情報（JP）', url: 'https://www.aso-volcano.jp/' },
-                { label: 'Crater Restriction（EN）', url: 'https://www.aso-volcano.jp/eng/' },
-                { label: '熊本重要公告', url: 'https://kumamoto.guide/important/detail/500' }
-              ],
-              stayMins: 60,
-              costJPY: 0,
-            },
-            {
-              id: 'd2-sakura-tour',
-              time: '13:30',
-              kind: 'spot',
-              level: 'flex',
-              title: '南阿蘇三大櫻（依花況選）',
-              titleLocal: '一心行の大桜／観音桜／高森峠 千本桜',
-              desc: '把「花況」放第一：若未到狀態就改走外輪山展望點，保留體力。\n建議順序：一心行 → 観音桜 → 高森峠（車拍收尾）。',
-              bestShot: '午后',
-              lens: '一心行：24–70mm；観音桜：廣角；高森峠：100mm+ 壓縮道路。',
-              mapsQuery: '一心行の大桜',
-              links: [],
-              stayMins: 180,
-              costJPY: 0,
-            }
+            { id: 'd2-kusasenri', time: '08:30', kind: 'spot', level: 'must', title: '草千里ヶ浜 (Kusasenri-ga-hama)', titleLocal: '草千里ヶ浜', desc: '低飽和度的火山地景主場。風大時注意灰塵與鏡頭保護。', bestShot: '晨', lens: '24mm 拍中岳＋草原；70mm 壓縮地形與馬匹。', mapsQuery: '草千里ヶ浜', stayMins: 60, costJPY: 0 },
+            { id: 'd2-nakadake', time: '10:00', kind: 'spot', level: 'flex', title: '中岳火口（Nakadake Crater）', titleLocal: '阿蘇 中岳火口', desc: '視當日火山管制與風向開放狀況決定是否進入；若封閉就改周邊展望點。', bestShot: '午前', lens: '24–35mm 拍地形；70mm 拉近火口煙霧層次。', mapsQuery: '阿蘇 中岳火口', stayMins: 60, costJPY: 0 },
+            { id: 'd2-isshingyo', time: '13:30', kind: 'spot', level: 'must', title: '一心行の大桜 (Isshingyo no Oozakura)', titleLocal: '一心行の大桜', desc: '一本櫻代表作。若同時有油菜花，畫面對比強。', bestShot: '午后', lens: '24–70mm：大樹＋油菜花；長焦壓縮阿蘇山作背景。', mapsQuery: '一心行の大桜', stayMins: 60, costJPY: 0 },
+            { id: 'd2-kannon', time: '14:45', kind: 'spot', level: 'flex', title: '観音桜（Kannon Sakura）', titleLocal: '観音桜', desc: '展望型一本櫻：俯瞰南阿蘇破火山口地形。', bestShot: '午后', lens: '廣角必帶；長焦壓縮農田棋盤紋理。', mapsQuery: '観音桜 南阿蘇', stayMins: 45, costJPY: 0 },
+            { id: 'd2-shirakawa', time: '15:45', kind: 'spot', level: 'flex', title: '白川水源 (Shirakawa Suigen)', titleLocal: '白川水源', desc: '裝水點。人多時短停留即可。', bestShot: '午后', lens: '24–35mm 拍水面紋理；注意反光。', mapsQuery: '白川水源', stayMins: 30, costJPY: 0 },
+            { id: 'd2-back', time: '17:00', kind: 'hotel', level: 'must', title: '回到界 阿蘇：泡湯＋晚餐', desc: '午後收尾回宿，留時間給房內露天風呂。', bestShot: '夜', lens: '室內隨拍 35mm 即可。', mapsQuery: '星野リゾート 界 阿蘇', stayMins: 120, costJPY: 0 }
           ]
         },
         {
           id: 'day3',
           dayLabel: 'Day 3',
           date: '2026/03/27（五）',
-          area: '阿蘇 → 高千穗 → 福岡',
-          title: '峽谷任務 · 回福岡',
-          summary: '高千穗划船（需預約）→ 傍晚回福岡。',
-          driveHint: '長距離，務必留緩衝',
-          base: { name: '福岡市區（Base）', lat: 33.5896534, lon: 130.4228213 },
+          area: '阿蘇 → 高千穗 (Takachiho) → 福岡 (Hakata/Gion)',
+          title: '高千穗峽划船 · 回福岡逛街＋大浴場',
+          summary: '上午高千穗峽（船需預約；搶不到就走步道），午後趕回博多 18:00 還車，晚上留給太太逛街。',
+          driveHint: '界 阿蘇→高千穗→博多（18:00 還車固定）',
+          base: { name: '三井ガーデンホテル福岡祇園', lat: 33.5917, lon: 130.4146 },
           stops: [
-            {
-              id: 'd3-takachiho',
-              time: '14:30',
-              kind: 'spot',
-              level: 'must',
-              title: '高千穂峡：划船 (Takachiho Gorge Boat)',
-              titleLocal: '高千穂峡 貸しボート',
-              desc: '重點任務：務必事前預約（2 週前 09:00 開放）。',
-              bestShot: '午后',
-              lens: '24mm 拍峽谷垂直線；35mm 拍船上視角。',
-              mapsQuery: '高千穂峡 第1御塩井駐車場 貸しボート',
-              links: [
-                { label: '貸しボート予約サイト', url: 'https://eipro.jp/takachiho1/eventCalendars/index' }
-              ],
-              stayMins: 120,
-              costJPY: 5200,
-            }
+            { id: 'd3-takamori', time: '08:30', kind: 'spot', level: 'backup', title: '高森千本桜（Takamori Senbonzakura）', titleLocal: '高森千本桜', desc: '若 Day2 沒去、且花況正好才順路短停；否則直接前往高千穗。', bestShot: '午前', lens: '長焦壓縮彎道與樹海；35mm 做道路引導線。', mapsQuery: '高森千本桜', stayMins: 30, costJPY: 0 },
+            { id: 'd3-takachiho-boat', time: '10:30', kind: 'spot', level: 'must', title: '高千穂峡：貸しボート／散策', titleLocal: '高千穂峡（貸しボート）', desc: '自然景重點。若搶到船就划船；若沒搶到就走步道看「真名井の滝」與峽谷垂直岩壁。', bestShot: '午前/午后', lens: '24–35mm 拍峽谷線條；70–300mm 拉近瀑布與划船畫面。船上注意防水/手機繩。', mapsQuery: '高千穂峡 第1御塩井駐車場', links: [ { label: '貸しボート予約', url: 'https://eipro.jp/takachiho1/eventCalendars/index' } ], stayMins: 150, costJPY: 5200 },
+            { id: 'd3-drive', time: '13:30', kind: 'drive', level: 'must', title: '移動：高千穗 → 博多（含休息站）', desc: '以 18:00 還車為硬目標：路上塞車就縮短午餐/購物，把緩衝留給回程。', mapsQuery: 'トヨタレンタカー 博多駅 博多口', stayMins: 270, costJPY: 0 },
+            { id: 'd3-return', time: '18:00', kind: 'drive', level: 'must', title: '還車：トヨタレンタカー 博多駅 博多口', titleLocal: 'トヨタレンタカー 博多駅', desc: '還車前加油、拍照結案。地址：博多駅前1-15-20 NMF博多駅前ビル1F', mapsQuery: 'トヨタレンタカー 博多駅 博多口', stayMins: 30, costJPY: 0 },
+            { id: 'd3-hotel', time: '19:00', kind: 'hotel', level: 'must', title: '入住：三井ガーデンホテル福岡祇園（大浴場）', titleLocal: '三井ガーデンホテル福岡祇園', desc: '還車後步行/計程車到飯店，先泡大浴場再出門。', bestShot: '夜', lens: '飯店/街拍：35mm。', mapsQuery: '三井ガーデンホテル福岡祇園', stayMins: 45, costJPY: 0 },
+            { id: 'd3-shop', time: '20:30', kind: 'spot', level: 'flex', title: '逛街：キャナルシティ博多 / 天神地下街', titleLocal: 'キャナルシティ博多', desc: '給太太的逛街窗口，重點是不趕。', bestShot: '夜', lens: '35mm 走拍；24–35mm 拍建築線條。', mapsQuery: 'キャナルシティ博多', stayMins: 90, costJPY: 3000 }
           ]
         },
         {
           id: 'day4',
           dayLabel: 'Day 4',
           date: '2026/03/28（六）',
-          area: '福岡 (Fukuoka)',
-          title: '太宰府 · 櫻花補拍 · 晚班回台',
-          summary: '太宰府確定要去；其餘看體力與花況補位，晚上回程。',
-          driveHint: '市區移動',
-          base: { name: '福岡市區（Base）', lat: 33.5896534, lon: 130.4228213 },
+          area: '福岡市區 · 太宰府 → FUK',
+          title: '太宰府 · 市區補貨 · 晚班回台',
+          summary: '上午太宰府（必去），下午市區補貨；BR101 20:55 回台。',
+          driveHint: '市區移動（地鐵/西鐵）',
+          base: { name: '福岡市區（Hakata/Gion）', lat: 33.5917, lon: 130.4146 },
           stops: [
-            {
-              id: 'd4-dazaifu',
-              time: '09:30',
-              kind: 'spot',
-              level: 'must',
-              title: '太宰府天滿宮 (Dazaifu Tenmangu)',
-              titleLocal: '太宰府天満宮',
-              desc: '散步型古蹟點。早到比較乾淨。',
-              bestShot: '晨',
-              lens: '35mm 走拍；若要壓縮參道可用 70mm。',
-              mapsQuery: '太宰府天満宮',
-              links: [],
-              stayMins: 120,
-              costJPY: 0,
-            },
-            {
-              id: 'd4-flight',
-              time: '',
-              kind: 'drive',
-              level: 'must',
-              title: '回程：FUK → TPE（晚班）',
-              titleLocal: '',
-              desc: '航班時間待填（可在編輯模式直接改）。',
-              bestShot: '',
-              lens: '',
-              mapsQuery: 'Fukuoka Airport',
-              links: [],
-              stayMins: 0,
-              costJPY: 0,
-            }
+            { id: 'd4-dazaifu', time: '09:30', kind: 'spot', level: 'must', title: '太宰府天満宮 (Dazaifu Tenmangu)', titleLocal: '太宰府天満宮', desc: '必去點。若想避人潮建議早到，可順手吃梅ヶ枝餅。', bestShot: '晨', lens: '35mm 記錄；24mm 拍參道與建築線條。', mapsQuery: '太宰府天満宮', stayMins: 120, costJPY: 0 },
+            { id: 'd4-lalaport', time: '13:00', kind: 'spot', level: 'flex', title: '購物：ららぽーと福岡 / 天神', titleLocal: 'ららぽーと福岡', desc: '購物/退稅/伴手禮。若不想跑遠，就回天神/博多站周邊即可。', lens: '室內不必多鏡。', mapsQuery: 'ららぽーと福岡', stayMins: 150, costJPY: 0 },
+            { id: 'd4-flight', time: '20:55', kind: 'drive', level: 'must', title: '回程：福岡 (FUK) → 台北 (TPE)', titleLocal: 'BR101', desc: 'BR101 20:55 → 22:40（T2）。建議至少 2 小時前到機場。', mapsQuery: 'Fukuoka Airport', stayMins: 0, costJPY: 0 }
           ]
         }
       ]
@@ -656,19 +426,7 @@
           doneMap: {},
           weatherDayIndex: 0,
           weather: { loading: false, error: '', items: [] },
-          modals: {
-            food: { open: false, di: -1, si: -1 },
-            json: { open: false, mode: 'export', text: '' },
-            stop: { open: false, di: -1, si: -1 }
-          },
-          foodForm: {
-            name: '',
-            nameLocal: '',
-            tabelogScore: '',
-            tabelogUrl: '',
-            reserve: { tablecheck: '', hotpepper: '', omakase: '', official: '' },
-            note: ''
-          },
+          modals: { json: { open: false, mode: 'export', text: '' }, stop: { open: false, di: -1, si: -1 } },
           stopMenu: { level: 'must', kind: 'spot', stayMins: '', costJPY: '' },
         }
       },
@@ -678,66 +436,30 @@
           const taskStops = (this.plan.tasks?.length||0);
           return dayStops + taskStops;
         },
-        doneCount(){
-          return Object.values(this.doneMap).filter(Boolean).length;
-        },
-        progressPct(){
-          if(!this.totalStops) return 0;
-          return Math.round((this.doneCount / this.totalStops) * 100);
-        },
+        doneCount(){ return Object.values(this.doneMap).filter(Boolean).length; },
+        progressPct(){ return this.totalStops ? Math.round((this.doneCount / this.totalStops) * 100) : 0; },
         totalJPY(){
           let sum = 0;
-          for(const d of this.plan.days){
-            for(const s of (d.stops||[])) sum += Number(s.costJPY||0);
-          }
+          for(const d of this.plan.days){ for(const s of (d.stops||[])) sum += Number(s.costJPY||0); }
           return Math.round(sum);
         },
-        totalTWD(){
-          return Math.round(this.totalJPY * EXCHANGE_RATE);
-        }
+        totalTWD(){ return Math.round(this.totalJPY * EXCHANGE_RATE); }
       },
       mounted(){
         this.loadFromHashOrLocal();
+        this.migratePlan();
         this.loadDone();
         this.fetchWeather();
-        window.addEventListener('hashchange', () => this.loadFromHashOrLocal());
-
-        // --- tiny smoke tests ---
-        try{
-          console.assert(b64UrlDecode(b64UrlEncode('test✓')) === 'test✓', 'b64 url roundtrip');
-          const tmp = deepClone(defaultPlan);
-          console.assert(Array.isArray(tmp.days) && tmp.days.length === 4, 'defaultPlan.days should be 4');
-          const day2 = tmp.days.find(d => d.id === 'day2');
-          console.assert(!!day2, 'day2 exists');
-          console.assert(day2.stops.some(s => s.id === 'd2-nakadake'), 'day2 has nakadake');
-          console.assert(day2.stops.some(s => s.id === 'd2-kusasenri'), 'day2 has kusasenri');
-        }catch(e){ console.warn('Smoke tests failed', e); }
+        window.addEventListener('hashchange', () => { this.loadFromHashOrLocal(); this.migratePlan(); });
       },
       methods: {
-        kindText(kind){
-          return ({ spot:'景點', food:'餐廳', hotel:'住宿', drive:'移動', task:'任務' }[kind]) || kind;
-        },
-        levelText(level){
-          return ({ must:'必去', flex:'可調整', backup:'備案' }[level]) || level;
-        },
-        kindBadge(kind){
-          return ({
-            spot: 'border-stone-300 bg-white text-stone-700',
-            food: 'border-stone-300 bg-white text-stone-700',
-            hotel:'border-stone-300 bg-white text-stone-700',
-            drive:'border-stone-300 bg-white text-stone-700',
-            task:'border-stone-300 bg-white text-stone-700',
-          }[kind]) || 'border-stone-300 bg-white text-stone-700';
-        },
+        kindText(kind){ return ({ spot:'景點', hotel:'住宿', drive:'移動', task:'任務' }[kind]) || kind; },
+        levelText(level){ return ({ must:'必去', flex:'可調整', backup:'備案' }[level]) || level; },
+        kindBadge(){ return 'border-stone-300 bg-white text-stone-700'; },
         levelBadge(level){
-          return ({
-            must: 'border-stone-700 bg-stone-800 text-stone-50',
-            flex: 'border-stone-300 bg-white text-stone-700',
-            backup: 'border-stone-300 bg-stone-100 text-stone-700',
-          }[level]) || 'border-stone-300 bg-white text-stone-700';
+          return ({ must:'border-stone-700 bg-stone-800 text-stone-50', flex:'border-stone-300 bg-white text-stone-700', backup:'border-stone-300 bg-stone-100 text-stone-700' }[level]) || 'border-stone-300 bg-white text-stone-700';
         },
 
-        // --- Editable helpers ---
         toggleEdit(){ this.editMode = !this.editMode; },
         onBlurText(evt, path){
           if(!this.editMode) return;
@@ -750,37 +472,22 @@
           let cur = this.plan;
           for(let i=0;i<segs.length-1;i++){
             const k = segs[i];
-            cur = cur?.[k];
+            cur = cur[k];
             if(cur === undefined || cur === null) return;
           }
           cur[segs[segs.length-1]] = value;
         },
 
-        // --- Done state ---
         doneKey(dayId, stopId){ return `${dayId}::${stopId}`; },
         loadDone(){
-          try{
-            const raw = localStorage.getItem(LS_DONE_KEY);
-            this.doneMap = raw ? JSON.parse(raw) : {};
-          }catch(_){ this.doneMap = {}; }
+          try{ this.doneMap = JSON.parse(localStorage.getItem(LS_DONE_KEY) || '{}'); }
+          catch(_){ this.doneMap = {}; }
         },
-        saveDone(){
-          try{ localStorage.setItem(LS_DONE_KEY, JSON.stringify(this.doneMap)); }catch(_){ }
-        },
-        isDone(dayId, stopId){
-          return !!this.doneMap[this.doneKey(dayId, stopId)];
-        },
-        toggleDone(dayId, stopId){
-          const k = this.doneKey(dayId, stopId);
-          this.doneMap[k] = !this.doneMap[k];
-          this.saveDone();
-        },
-        resetDone(){
-          this.doneMap = {};
-          this.saveDone();
-        },
+        saveDone(){ try{ localStorage.setItem(LS_DONE_KEY, JSON.stringify(this.doneMap)); }catch(_){ } },
+        isDone(dayId, stopId){ return !!this.doneMap[this.doneKey(dayId, stopId)]; },
+        toggleDone(dayId, stopId){ const k = this.doneKey(dayId, stopId); this.doneMap[k] = !this.doneMap[k]; this.saveDone(); },
+        resetDone(){ this.doneMap = {}; this.saveDone(); },
 
-        // --- Weather ---
         weatherCodeToText(code){
           if(code === 0) return '晴';
           if([1,2,3].includes(code)) return '多雲';
@@ -814,25 +521,19 @@
               tmin: Math.round(tmin[i] ?? 0),
               precip: Math.round((p[i] ?? 0) * 10) / 10,
             }));
-          }catch(err){
+          }catch(_){
             this.weather.error = '天氣讀取失敗（可能是網路/阻擋跨域）。';
           }finally{
             this.weather.loading = false;
           }
         },
 
-        // --- Maps ---
-        mapsSearchUrl(q){
-          return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
-        },
+        mapsSearchUrl(q){ return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`; },
         openGoogleMapsDay(day){
           const points = [];
           if(day.base?.name) points.push(day.base.name);
           for(const s of (day.stops||[])) if(s.mapsQuery) points.push(s.mapsQuery);
-          if(points.length < 2){
-            window.open(this.mapsSearchUrl(day.base?.name || day.area), '_blank', 'noreferrer');
-            return;
-          }
+          if(points.length < 2){ window.open(this.mapsSearchUrl(day.base?.name || day.area), '_blank', 'noreferrer'); return; }
           const origin = points[0];
           const destination = points[points.length-1];
           const waypoints = points.slice(1, -1).join('|');
@@ -840,35 +541,10 @@
           window.open(url, '_blank', 'noreferrer');
         },
 
-        // --- Food editor ---
-        openFoodEditor(di, si){
-          const stop = this.plan.days[di].stops[si];
-          if(!stop.food){
-            stop.food = { name:'', nameLocal:'', tabelogScore:'', tabelogUrl:'', reserve:{tablecheck:'',hotpepper:'',omakase:'',official:''}, note:'' };
-          }
-          this.modals.food = { open:true, di, si };
-          this.foodForm = JSON.parse(JSON.stringify(stop.food));
-        },
-        closeFoodEditor(){ this.modals.food.open = false; },
-        saveFood(){
-          const { di, si } = this.modals.food;
-          if(di<0 || si<0) return;
-          const stop = this.plan.days[di].stops[si];
-          stop.food = JSON.parse(JSON.stringify(this.foodForm));
-          this.persist();
-          this.closeFoodEditor();
-        },
-
-        // --- Stop menu ---
         openStopMenu(di, si){
           const stop = this.plan.days[di].stops[si];
           this.modals.stop = { open:true, di, si };
-          this.stopMenu = {
-            level: stop.level || 'must',
-            kind: stop.kind || 'spot',
-            stayMins: stop.stayMins ? String(stop.stayMins) : '',
-            costJPY: stop.costJPY ? String(stop.costJPY) : '',
-          };
+          this.stopMenu = { level: stop.level || 'must', kind: stop.kind || 'spot', stayMins: stop.stayMins ? String(stop.stayMins) : '', costJPY: stop.costJPY ? String(stop.costJPY) : '' };
         },
         closeStopMenu(){ this.modals.stop.open = false; },
         applyStopMenu(){
@@ -882,24 +558,11 @@
           this.closeStopMenu();
         },
 
-        // --- JSON import/export ---
-        openJson(mode){
-          this.modals.json.open = true;
-          this.modals.json.mode = mode;
-          this.modals.json.text = mode === 'export' ? JSON.stringify(this.plan, null, 2) : '';
-        },
+        openJson(mode){ this.modals.json.open = true; this.modals.json.mode = mode; this.modals.json.text = mode === 'export' ? JSON.stringify(this.plan, null, 2) : ''; },
         closeJson(){ this.modals.json.open = false; },
         importJson(){
-          try{
-            const obj = JSON.parse(this.modals.json.text);
-            this.plan = obj;
-            this.persist();
-            this.weatherDayIndex = 0;
-            this.fetchWeather();
-            this.closeJson();
-          }catch(_){
-            alert('JSON 格式錯誤');
-          }
+          try{ this.plan = JSON.parse(this.modals.json.text); this.persist(); this.weatherDayIndex = 0; this.fetchWeather(); this.closeJson(); }
+          catch(_){ alert('JSON 格式錯誤'); }
         },
 
         async copyText(text){
@@ -907,42 +570,56 @@
           catch(_){ alert('複製失敗（瀏覽器限制）。'); }
         },
 
-        // --- Share (hash) ---
         setHashFromPlan(){
-          try{
-            const str = JSON.stringify(this.plan);
-            const enc = b64UrlEncode(str);
-            location.hash = `#p=${enc}`;
-          }catch(_){ }
+          try{ const enc = b64UrlEncode(JSON.stringify(this.plan)); location.hash = `#p=${enc}`; }
+          catch(_){ }
         },
-        copyShare(){
-          this.setHashFromPlan();
-          const url = location.href;
-          this.copyText(url);
+        copyShare(){ this.setHashFromPlan(); this.copyText(location.href); },
+        migratePlan(){
+          // 只做「補齊」：不覆蓋你手動改過的內容
+          let changed = false;
+
+          // tasks
+          if(!Array.isArray(this.plan.tasks)){
+            this.plan.tasks = [];
+            changed = true;
+          }
+          const tk = defaultPlan.tasks.find(t => t.id === 'task-takachiho-boat');
+          if(tk && !this.plan.tasks.some(t => t.id === tk.id)){
+            this.plan.tasks.push(deepClone(tk));
+            changed = true;
+          }
+
+          // Day 3：高千穗（若你用舊版 localStorage/分享連結，可能會缺）
+          const day3 = (this.plan.days || []).find(d => d.id === 'day3');
+          const tplDay3 = defaultPlan.days.find(d => d.id === 'day3');
+          const st = tplDay3?.stops?.find(s => s.id === 'd3-takachiho-boat');
+          if(day3){
+            if(!Array.isArray(day3.stops)){
+              day3.stops = [];
+              changed = true;
+            }
+            if(st && !day3.stops.some(s => s.id === st.id)){
+              const idxDrive = day3.stops.findIndex(s => s.id === 'd3-drive');
+              const insertAt = idxDrive > 0 ? idxDrive : 0;
+              day3.stops.splice(insertAt, 0, deepClone(st));
+              changed = true;
+            }
+          }
+
+          if(changed) this.persist();
         },
 
-        // --- Persistence ---
-        persist(){
-          try{ localStorage.setItem(LS_KEY, JSON.stringify(this.plan)); }catch(_){ }
-        },
+        persist(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(this.plan)); }catch(_){ } },
         loadFromHashOrLocal(){
           const h = location.hash || '';
           const m = h.match(/#p=([^&]+)/);
           if(m && m[1]){
-            try{
-              const str = b64UrlDecode(m[1]);
-              const obj = JSON.parse(str);
-              this.plan = obj;
-              this.persist();
-              return;
-            }catch(_){ }
+            try{ this.plan = JSON.parse(b64UrlDecode(m[1])); this.persist(); return; }
+            catch(_){ }
           }
-          try{
-            const raw = localStorage.getItem(LS_KEY);
-            this.plan = raw ? JSON.parse(raw) : deepClone(defaultPlan);
-          }catch(_){
-            this.plan = deepClone(defaultPlan);
-          }
+          try{ const raw = localStorage.getItem(LS_KEY); this.plan = raw ? JSON.parse(raw) : deepClone(defaultPlan); }
+          catch(_){ this.plan = deepClone(defaultPlan); }
         },
         resetPlan(){
           if(!confirm('確定要重置為預設行程？（會覆蓋目前修改）')) return;
@@ -953,11 +630,7 @@
           history.replaceState(null, '', location.pathname + location.search);
         },
 
-        // --- Tasks ---
-        addTask(){
-          this.plan.tasks.push({ id: `task-${Date.now()}`, title: '新任務', note: '（點編輯後可修改）' });
-          this.persist();
-        },
+        addTask(){ this.plan.tasks.push({ id: `task-${Date.now()}`, title: '新任務', note: '（點編輯後可修改）' }); this.persist(); },
         deleteTask(i){
           if(!confirm('刪除此任務？')) return;
           const t = this.plan.tasks[i];
@@ -967,10 +640,24 @@
           this.saveDone();
         },
 
-        // --- Misc ---
         scrollTop(){ window.scrollTo({ top: 0, behavior: 'smooth' }); }
       }
     }).mount('#app');
+
+    (function runSmokeTests(){
+      try {
+        console.assert(b64UrlDecode(b64UrlEncode('hello')) === 'hello', 'b64Url encode/decode');
+        console.assert(Array.isArray(defaultPlan.days) && defaultPlan.days.length === 4, 'days length should be 4');
+        console.assert(defaultPlan.tasks.some(t => t.id === 'task-takachiho-boat'), 'Takachiho booking task should exist');
+        const d3 = defaultPlan.days.find(d => d.id === 'day3');
+        console.assert(!!d3 && d3.stops.some(s => s.id === 'd3-takachiho-boat'), 'Day3 should include Takachiho stop');
+        console.assert(defaultPlan.days[0].base.name.includes('界'), 'Day1 base should be KAI Aso');
+        const html = document.documentElement.outerHTML;
+        console.assert(!html.includes('$1') && !html.includes('$2'), 'No stray $1/$2 tokens in HTML');
+      } catch (err) {
+        console.warn('Smoke tests failed:', err);
+      }
+    })();
   </script>
 </body>
 </html>
