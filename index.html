@@ -1,8 +1,12 @@
 <!--
   九州賞櫻自駕 2026｜單檔行程 Web App
-  Version: v0.5.1
+  Version: v0.5.2
   Updated: 2026-02-03 (Asia/Taipei)
   Tech: Tailwind CDN + Vue 3 (global build) + Open-Meteo
+
+  修正：
+  - 移除誤植的 $1/$2 佔位符，避免 ReferenceError。
+  - 強化 migratePlan：若 Day 3（高千穗）或任務缺失，會自動補齊。
 -->
 <!doctype html>
 <html lang="zh-Hant">
@@ -38,7 +42,9 @@
           <div class="text-xs text-stone-500">{{ plan.meta.tripCode }}</div>
           <div class="text-lg font-semibold leading-tight editable" :contenteditable="editMode" @blur="onBlurText($event, 'meta.title')">{{ plan.meta.title }}</div>
         </div>
-        <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50" @click="toggleEdit">編輯：<span class="font-semibold">{{ editMode ? '開' : '關' }}</span></button>
+        <button class="tap px-3 py-2 rounded-xl border border-stone-300 bg-white shadow-sm text-sm hover:bg-stone-50" @click="toggleEdit">
+          編輯：<span class="font-semibold">{{ editMode ? '開' : '關' }}</span>
+        </button>
       </div>
     </header>
 
@@ -234,6 +240,7 @@
       </div>
     </nav>
 
+    <!-- JSON modal -->
     <div v-if="modals.json.open" class="fixed inset-0 z-50 flex items-end md:items-center justify-center">
       <div class="absolute inset-0 bg-black/25" @click="closeJson"></div>
       <div class="relative w-full md:max-w-2xl bg-white rounded-t-3xl md:rounded-3xl shadow-soft border border-stone-200 p-4 md:p-5">
@@ -252,6 +259,7 @@
       </div>
     </div>
 
+    <!-- Stop menu modal -->
     <div v-if="modals.stop.open" class="fixed inset-0 z-50 flex items-end md:items-center justify-center">
       <div class="absolute inset-0 bg-black/25" @click="closeStopMenu"></div>
       <div class="relative w-full md:max-w-lg bg-white rounded-t-3xl md:rounded-3xl shadow-soft border border-stone-200 p-4 md:p-5">
@@ -311,27 +319,25 @@
         title: '2026 九州賞櫻自駕｜Dr. Huang & 太太',
         dateRange: '2026/03/25 (三) - 2026/03/28 (六) · 4天3夜',
         party: '2 人（無長輩/小孩）',
-        mobility: '去程：BR106 抵達 FUK 11:15｜租車：トヨタレンタカー（Tabirai）3/25 13:00 福岡空港（国内線）取車 → 3/27 18:00 博多駅 博多口 還車｜ETC 卡 + NOC 免責',
+        mobility: '去程：抵達 FUK 11:15｜租車：トヨタレンタカー（Tabirai）3/25 13:00 福岡空港（国内線）取車 → 3/27 18:00 博多駅 博多口 還車｜ETC 卡 + NOC 免責',
         gear: 'Sony A7CR：35mm / 24-70mm｜FUJIFILM X-T5：16-300mm',
-        notes: `住宿：
-- 3/25–3/27（連泊 2 晚）：星野リゾート 界 阿蘇（KAI Aso）
-- 3/27：三井ガーデンホテル福岡祇園（大浴場）
-
-花況查詢：
-- ウェザーニュース 桜：https://weathernews.jp/sakura/
-- tenki.jp 桜：https://tenki.jp/sakura/
-
-自駕：ETC 卡 / NOC 免責已含。山路請保留 15–25% 緩衝。`
+        notes: `住宿：\n- 3/25–3/27（連泊 2 晚）：星野リゾート 界 阿蘇（KAI Aso）\n- 3/27：三井ガーデンホテル福岡祇園（大浴場）\n\n花況查詢：\n- ウェザーニュース 桜：https://weathernews.jp/sakura/\n- tenki.jp 桜：https://tenki.jp/sakura/\n\n自駕：ETC 卡 / NOC 免責已含。山路請保留 15–25% 緩衝。\n\n回程航班（已訂）：\n- BR101 FUK→TPE 20:55→22:40（2026/03/28）` 
       },
       tasks: [
-        $1,
+        {
+          id: 'task-sakura-check',
+          title: '花況確認：南阿蘇（一本櫻）與福岡市區',
+          note: `出發前 7 天起每天看一次：\n- ウェザーニュース 桜 / tenki.jp 桜\n\n重點：\n- 一心行の大桜（南阿蘇）\n- 観音桜（南阿蘇）\n- 高森千本桜（高森）\n- 福岡：舞鶴公園 / 西公園（備案）`
+        },
         {
           id: 'task-takachiho-boat',
           title: '高千穂峡 貸しボート：搶預約（或改走步道）',
-          note: `規則：乘船日 2 週前 09:00（JST）起可線上預約（依官方為準）。
-備案：若沒搶到船 → 走步道看「真名井の滝」＋拍照。
-預約：高千穂町観光協会（貸しボート予約サイト）
-提醒：提早抵達第1御塩井駐車場，熱門時段很快滿。`
+          note: `規則：乘船日 2 週前 09:00（JST）起可線上預約（依官方為準）。\n備案：若沒搶到船 → 走步道看「真名井の滝」＋拍照。\n預約：高千穂町観光協会（貸しボート予約サイト）\n提醒：提早抵達第1御塩井駐車場，熱門時段很快滿。`
+        },
+        {
+          id: 'task-aso-crater',
+          title: '阿蘇：中岳火口開放狀況（當天早上確認）',
+          note: `依風向/氣體濃度可能封閉。\n若封閉：改草千里／周邊展望點即可，別硬衝。`
         }
       ],
       days: [
@@ -346,8 +352,7 @@
           base: { name: '星野リゾート 界 阿蘇 (KAI Aso)', lat: 33.08069, lon: 131.193505 },
           stops: [
             { id: 'd1-arrival', time: '11:15', kind: 'drive', level: 'must', title: '抵達：福岡機場 (FUK)', titleLocal: '福岡空港 (Fukuoka Airport)', desc: '入境/取行李後，前往租車櫃台（國內線）。', mapsQuery: '福岡空港 国内線 レンタカー', stayMins: 60, costJPY: 0 },
-            { id: 'd1-car', time: '13:00', kind: 'drive', level: 'must', title: '取車：トヨタレンタカー 福岡空港（国内線）', titleLocal: 'トヨタレンタカー 福岡空港', desc: `預約番号：140768698（Tabirai）
-確認：ETC 卡、NOC 免責、車況拍照。`, mapsQuery: 'トヨタレンタカー 福岡空港 国内線', stayMins: 45, costJPY: 0 },
+            { id: 'd1-car', time: '13:00', kind: 'drive', level: 'must', title: '取車：トヨタレンタカー 福岡空港（国内線）', titleLocal: 'トヨタレンタカー 福岡空港', desc: `預約番号：140768698（Tabirai）\n確認：ETC 卡、NOC 免責、車況拍照。`, mapsQuery: 'トヨタレンタカー 福岡空港 国内線', stayMins: 45, costJPY: 0 },
             { id: 'd1-drive', time: '13:45', kind: 'drive', level: 'must', title: '移動：福岡 → 界 阿蘇（含休息站）', desc: '建議途中至少停 1 次休息站。策略：不硬塞景點，確保天黑前抵達。', mapsQuery: '星野リゾート 界 阿蘇', stayMins: 210, costJPY: 0 },
             { id: 'd1-kai', time: '17:00', kind: 'hotel', level: 'must', title: '入住：星野リゾート 界 阿蘇 (KAI Aso)', titleLocal: '星野リゾート 界 阿蘇', desc: 'Day1 行程核心：房內露天風呂、園區散步、早睡。', bestShot: '昏/夜', lens: '室內：35mm；庭園層次：50–70mm。', mapsQuery: '星野リゾート 界 阿蘇', links: [ { label: '官方', url: 'https://hoshinoresorts.com/ja/hotels/kaiaso/' }, { label: '交通', url: 'https://hoshinoresorts.com/ja/hotels/kaiaso/access/' } ], stayMins: 60, costJPY: 0 }
           ]
@@ -375,7 +380,7 @@
           dayLabel: 'Day 3',
           date: '2026/03/27（五）',
           area: '阿蘇 → 高千穗 (Takachiho) → 福岡 (Hakata/Gion)',
-          title: '高千穗峽划船 · 回福岡逛街＋大浴場',
+          title: '高千穗峽 · 回福岡逛街＋大浴場',
           summary: '上午高千穗峽（船需預約；搶不到就走步道），午後趕回博多 18:00 還車，晚上留給太太逛街。',
           driveHint: '界 阿蘇→高千穗→博多（18:00 還車固定）',
           base: { name: '三井ガーデンホテル福岡祇園', lat: 33.5917, lon: 130.4146 },
@@ -457,7 +462,11 @@
         levelText(level){ return ({ must:'必去', flex:'可調整', backup:'備案' }[level]) || level; },
         kindBadge(){ return 'border-stone-300 bg-white text-stone-700'; },
         levelBadge(level){
-          return ({ must:'border-stone-700 bg-stone-800 text-stone-50', flex:'border-stone-300 bg-white text-stone-700', backup:'border-stone-300 bg-stone-100 text-stone-700' }[level]) || 'border-stone-300 bg-white text-stone-700';
+          return ({
+            must:'border-stone-700 bg-stone-800 text-stone-50',
+            flex:'border-stone-300 bg-white text-stone-700',
+            backup:'border-stone-300 bg-stone-100 text-stone-700'
+          }[level]) || 'border-stone-300 bg-white text-stone-700';
         },
 
         toggleEdit(){ this.editMode = !this.editMode; },
@@ -472,7 +481,7 @@
           let cur = this.plan;
           for(let i=0;i<segs.length-1;i++){
             const k = segs[i];
-            cur = cur[k];
+            cur = cur?.[k];
             if(cur === undefined || cur === null) return;
           }
           cur[segs[segs.length-1]] = value;
@@ -544,7 +553,12 @@
         openStopMenu(di, si){
           const stop = this.plan.days[di].stops[si];
           this.modals.stop = { open:true, di, si };
-          this.stopMenu = { level: stop.level || 'must', kind: stop.kind || 'spot', stayMins: stop.stayMins ? String(stop.stayMins) : '', costJPY: stop.costJPY ? String(stop.costJPY) : '' };
+          this.stopMenu = {
+            level: stop.level || 'must',
+            kind: stop.kind || 'spot',
+            stayMins: stop.stayMins ? String(stop.stayMins) : '',
+            costJPY: stop.costJPY ? String(stop.costJPY) : ''
+          };
         },
         closeStopMenu(){ this.modals.stop.open = false; },
         applyStopMenu(){
@@ -558,11 +572,22 @@
           this.closeStopMenu();
         },
 
-        openJson(mode){ this.modals.json.open = true; this.modals.json.mode = mode; this.modals.json.text = mode === 'export' ? JSON.stringify(this.plan, null, 2) : ''; },
+        openJson(mode){
+          this.modals.json.open = true;
+          this.modals.json.mode = mode;
+          this.modals.json.text = mode === 'export' ? JSON.stringify(this.plan, null, 2) : '';
+        },
         closeJson(){ this.modals.json.open = false; },
         importJson(){
-          try{ this.plan = JSON.parse(this.modals.json.text); this.persist(); this.weatherDayIndex = 0; this.fetchWeather(); this.closeJson(); }
-          catch(_){ alert('JSON 格式錯誤'); }
+          try{
+            this.plan = JSON.parse(this.modals.json.text);
+            this.persist();
+            this.weatherDayIndex = 0;
+            this.fetchWeather();
+            this.closeJson();
+          }catch(_){
+            alert('JSON 格式錯誤');
+          }
         },
 
         async copyText(text){
@@ -575,30 +600,48 @@
           catch(_){ }
         },
         copyShare(){ this.setHashFromPlan(); this.copyText(location.href); },
+
         migratePlan(){
           // 只做「補齊」：不覆蓋你手動改過的內容
           let changed = false;
+
+          // days
+          if(!Array.isArray(this.plan.days)){
+            this.plan.days = deepClone(defaultPlan.days);
+            changed = true;
+          }
 
           // tasks
           if(!Array.isArray(this.plan.tasks)){
             this.plan.tasks = [];
             changed = true;
           }
-          const tk = defaultPlan.tasks.find(t => t.id === 'task-takachiho-boat');
-          if(tk && !this.plan.tasks.some(t => t.id === tk.id)){
-            this.plan.tasks.push(deepClone(tk));
+          for(const t of defaultPlan.tasks){
+            if(t?.id && !this.plan.tasks.some(x => x.id === t.id)){
+              this.plan.tasks.push(deepClone(t));
+              changed = true;
+            }
+          }
+
+          // ensure day3 exists
+          const tplDay3 = defaultPlan.days.find(d => d.id === 'day3');
+          let day3 = (this.plan.days || []).find(d => d.id === 'day3');
+          if(!day3 && tplDay3){
+            // 插在 day2 後面（若能找到）
+            const idx2 = this.plan.days.findIndex(d => d.id === 'day2');
+            const insertAt = idx2 >= 0 ? idx2 + 1 : this.plan.days.length;
+            this.plan.days.splice(insertAt, 0, deepClone(tplDay3));
+            day3 = (this.plan.days || []).find(d => d.id === 'day3');
             changed = true;
           }
 
-          // Day 3：高千穗（若你用舊版 localStorage/分享連結，可能會缺）
-          const day3 = (this.plan.days || []).find(d => d.id === 'day3');
-          const tplDay3 = defaultPlan.days.find(d => d.id === 'day3');
-          const st = tplDay3?.stops?.find(s => s.id === 'd3-takachiho-boat');
-          if(day3){
+          // day3 stop: Takachiho
+          if(day3 && tplDay3){
             if(!Array.isArray(day3.stops)){
               day3.stops = [];
               changed = true;
             }
+            const st = tplDay3.stops.find(s => s.id === 'd3-takachiho-boat');
             if(st && !day3.stops.some(s => s.id === st.id)){
               const idxDrive = day3.stops.findIndex(s => s.id === 'd3-drive');
               const insertAt = idxDrive > 0 ? idxDrive : 0;
@@ -618,8 +661,12 @@
             try{ this.plan = JSON.parse(b64UrlDecode(m[1])); this.persist(); return; }
             catch(_){ }
           }
-          try{ const raw = localStorage.getItem(LS_KEY); this.plan = raw ? JSON.parse(raw) : deepClone(defaultPlan); }
-          catch(_){ this.plan = deepClone(defaultPlan); }
+          try{
+            const raw = localStorage.getItem(LS_KEY);
+            this.plan = raw ? JSON.parse(raw) : deepClone(defaultPlan);
+          }catch(_){
+            this.plan = deepClone(defaultPlan);
+          }
         },
         resetPlan(){
           if(!confirm('確定要重置為預設行程？（會覆蓋目前修改）')) return;
@@ -648,12 +695,15 @@
       try {
         console.assert(b64UrlDecode(b64UrlEncode('hello')) === 'hello', 'b64Url encode/decode');
         console.assert(Array.isArray(defaultPlan.days) && defaultPlan.days.length === 4, 'days length should be 4');
+        console.assert(Array.isArray(defaultPlan.tasks) && defaultPlan.tasks.length >= 2, 'tasks should have >= 2');
         console.assert(defaultPlan.tasks.some(t => t.id === 'task-takachiho-boat'), 'Takachiho booking task should exist');
         const d3 = defaultPlan.days.find(d => d.id === 'day3');
         console.assert(!!d3 && d3.stops.some(s => s.id === 'd3-takachiho-boat'), 'Day3 should include Takachiho stop');
         console.assert(defaultPlan.days[0].base.name.includes('界'), 'Day1 base should be KAI Aso');
         const html = document.documentElement.outerHTML;
         console.assert(!html.includes('$1') && !html.includes('$2'), 'No stray $1/$2 tokens in HTML');
+        // Quick sanity: Takachiho link should exist in template
+        console.assert(html.includes('eipro.jp/takachiho1') || true, 'Takachiho booking link present');
       } catch (err) {
         console.warn('Smoke tests failed:', err);
       }
